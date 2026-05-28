@@ -18,8 +18,7 @@ class ExerciseSyncController extends Controller
         $result = $this->service->sync();
 
         return response()->json([
-            'success' => true,
-            'message' => 'Sincronización completada.',
+            'message' => 'Sincronizacion completada.',
             'data' => $result,
         ]);
     }

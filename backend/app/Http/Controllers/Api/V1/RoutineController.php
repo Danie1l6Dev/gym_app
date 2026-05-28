@@ -3,16 +3,18 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\RoutineIndexRequest;
 use App\Http\Requests\Api\V1\Routine\StoreRoutineRequest;
 use App\Http\Requests\Api\V1\Routine\UpdateRoutineRequest;
+use App\Http\Resources\Api\V1\RoutineResource;
 use App\Models\Routine;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class RoutineController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(RoutineIndexRequest $request): JsonResponse
     {
+        $filters = $request->validated();
         $user = $request->user();
 
         $routines = Routine::query()
@@ -25,12 +27,11 @@ class RoutineController extends Controller
                 })
             )
             ->latest()
-            ->paginate($request->integer('per_page', 15));
+            ->paginate($filters['per_page'] ?? 15);
 
-        return response()->json([
-            'success' => true,
-            'data' => $routines,
-        ]);
+        return RoutineResource::collection($routines)
+            ->additional(['message' => 'Rutinas obtenidas correctamente.'])
+            ->response();
     }
 
     public function store(StoreRoutineRequest $request): JsonResponse
@@ -47,21 +48,19 @@ class RoutineController extends Controller
 
         $this->syncExercises($routine, $data['exercises'] ?? []);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Rutina creada correctamente.',
-            'data' => $routine->load(['user', 'exercises.muscle']),
-        ], 201);
+        return RoutineResource::make($routine->load(['user', 'exercises.muscle']))
+            ->additional(['message' => 'Rutina creada correctamente.'])
+            ->response()
+            ->setStatusCode(201);
     }
 
     public function show(Routine $routine): JsonResponse
     {
         $this->authorizeAccess($routine);
 
-        return response()->json([
-            'success' => true,
-            'data' => $routine->load(['user', 'exercises.muscle']),
-        ]);
+        return RoutineResource::make($routine->load(['user', 'exercises.muscle']))
+            ->additional(['message' => 'Rutina obtenida correctamente.'])
+            ->response();
     }
 
     public function update(UpdateRoutineRequest $request, Routine $routine): JsonResponse
@@ -70,21 +69,23 @@ class RoutineController extends Controller
 
         $data = $request->validated();
 
-        $routine->update(array_filter([
-            'name' => $data['name'] ?? null,
-            'description' => array_key_exists('description', $data) ? $data['description'] : null,
-            'is_predefined' => $data['is_predefined'] ?? null,
-        ], static fn ($value) => $value !== null));
+        $updates = [];
+
+        foreach (['name', 'description', 'is_predefined'] as $field) {
+            if (array_key_exists($field, $data)) {
+                $updates[$field] = $data[$field];
+            }
+        }
+
+        $routine->update($updates);
 
         if (array_key_exists('exercises', $data)) {
             $this->syncExercises($routine, $data['exercises']);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Rutina actualizada correctamente.',
-            'data' => $routine->load(['user', 'exercises.muscle']),
-        ]);
+        return RoutineResource::make($routine->load(['user', 'exercises.muscle']))
+            ->additional(['message' => 'Rutina actualizada correctamente.'])
+            ->response();
     }
 
     public function destroy(Routine $routine): JsonResponse
@@ -94,8 +95,8 @@ class RoutineController extends Controller
         $routine->delete();
 
         return response()->json([
-            'success' => true,
             'message' => 'Rutina eliminada correctamente.',
+            'data' => null,
         ]);
     }
 
