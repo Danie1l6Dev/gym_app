@@ -6,7 +6,7 @@ use App\Models\Muscle;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
-class MuscleSeeder extends Seeder
+class MusclesSeeder extends Seeder
 {
     public function run(): void
     {

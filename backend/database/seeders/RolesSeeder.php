@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use App\Models\Role;
 use Illuminate\Database\Seeder;
 
-class RoleSeeder extends Seeder
+class RolesSeeder extends Seeder
 {
     public function run(): void
     {
@@ -13,12 +13,12 @@ class RoleSeeder extends Seeder
             [
                 'name' => 'Administrador',
                 'slug' => 'admin',
-                'description' => 'Acceso completo a administracion y sincronizacion.',
+                'description' => 'Acceso completo a administracion y sincronizacion. Puede usar funciones administrativas y del usuario final.',
             ],
             [
                 'name' => 'Usuario',
                 'slug' => 'user',
-                'description' => 'Acceso a catalogo y rutinas personales.',
+                'description' => 'Acceso al catalogo, rutinas y funciones del usuario final.',
             ],
         ];
 
