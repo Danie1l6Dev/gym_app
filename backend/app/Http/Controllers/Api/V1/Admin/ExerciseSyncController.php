@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\Exercises\ExerciseSyncService;
+use App\Services\Exercises\ExerciseDbSyncService;
 use Illuminate\Http\JsonResponse;
 
 class ExerciseSyncController extends Controller
 {
     public function __construct(
-        private readonly ExerciseSyncService $service,
+        private readonly ExerciseDbSyncService $service,
     ) {
     }
 
@@ -18,7 +18,7 @@ class ExerciseSyncController extends Controller
         $result = $this->service->sync();
 
         return response()->json([
-            'message' => 'Sincronizacion completada.',
+            'message' => 'Sincronización completada.',
             'data' => $result,
         ]);
     }

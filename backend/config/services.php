@@ -42,4 +42,12 @@ return [
         'source' => env('EXERCISE_API_SOURCE', 'exercise_api'),
     ],
 
+    'exercise_db' => [
+        'base_url' => env('EXERCISE_DB_BASE_URL', env('EXERCISE_API_URL')),
+        'exercises_path' => env('EXERCISE_DB_EXERCISES_PATH', '/api/v1/exercises'),
+        'key' => env('EXERCISE_DB_KEY', env('EXERCISE_API_KEY')),
+        'timeout' => env('EXERCISE_DB_TIMEOUT', env('EXERCISE_API_TIMEOUT', 30)),
+        'source' => env('EXERCISE_DB_SOURCE', 'exercise_db_v1'),
+    ],
+
 ];

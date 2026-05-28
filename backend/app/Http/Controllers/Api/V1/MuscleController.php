@@ -15,7 +15,7 @@ class MuscleController extends Controller
         $filters = $request->validated();
 
         $muscles = Muscle::query()
-            ->when(isset($filters['search']), function ($query) use ($filters): void {
+            ->when(! empty($filters['search'] ?? null), function ($query) use ($filters): void {
                 $search = $filters['search'];
 
                 $query->where(function ($inner) use ($search): void {
@@ -34,7 +34,7 @@ class MuscleController extends Controller
 
     public function show(Muscle $muscle): JsonResponse
     {
-        $muscle->load(['exercises' => fn ($query) => $query->orderBy('name_en')]);
+        $muscle->load(['exercises' => fn ($query) => $query->orderBy('name_original')]);
 
         return MuscleResource::make($muscle)
             ->additional(['message' => 'Musculo obtenido correctamente.'])

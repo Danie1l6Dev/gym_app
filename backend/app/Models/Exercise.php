@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 
 class Exercise extends Model
 {
@@ -16,13 +18,22 @@ class Exercise extends Model
         'muscle_id',
         'source',
         'external_id',
-        'name_en',
+        'name_original',
         'name_es',
+        'body_part',
+        'target_muscle',
+        'secondary_muscles',
+        'equipment',
+        'gif_url',
+        'instructions_original',
+        'instructions_es',
+        'raw_payload',
+        'synced_at',
+        // Legacy compatibility fields kept during the migration rollout.
+        'name_en',
         'description_en',
         'description_es',
-        'gif_url',
         'source_payload',
-        'synced_at',
     ];
 
     protected $appends = [
@@ -33,6 +44,11 @@ class Exercise extends Model
     protected function casts(): array
     {
         return [
+            'secondary_muscles' => 'array',
+            'equipment' => 'array',
+            'instructions_original' => 'array',
+            'instructions_es' => 'array',
+            'raw_payload' => 'array',
             'source_payload' => 'array',
             'synced_at' => 'datetime',
         ];
@@ -57,11 +73,82 @@ class Exercise extends Model
 
     public function getDisplayNameAttribute(): string
     {
-        return $this->name_es ?: $this->name_en;
+        return $this->name_es
+            ?: $this->name_original
+            ?: $this->name_en
+            ?: '';
     }
 
     public function getDisplayDescriptionAttribute(): ?string
     {
-        return $this->description_es ?: $this->description_en;
+        return $this->normalizeTextValue($this->instructions_es)
+            ?? $this->normalizeTextValue($this->instructions_original)
+            ?? $this->normalizeTextValue($this->description_es)
+            ?? $this->description_en;
+    }
+
+    public function translatedName(?string $locale = null): string
+    {
+        $locale ??= app()->getLocale();
+
+        if ($locale !== 'es') {
+            return $this->name_original ?: $this->name_en ?: $this->name_es ?: '';
+        }
+
+        return $this->name_es ?: $this->name_original ?: $this->name_en ?: '';
+    }
+
+    public function translatedDescription(?string $locale = null): ?string
+    {
+        $locale ??= app()->getLocale();
+
+        if ($locale !== 'es') {
+            return $this->normalizeTextValue($this->instructions_original)
+                ?? $this->description_en
+                ?? $this->normalizeTextValue($this->instructions_es)
+                ?? $this->description_es;
+        }
+
+        return $this->normalizeTextValue($this->instructions_es)
+            ?? $this->normalizeTextValue($this->instructions_original)
+            ?? $this->description_es
+            ?? $this->description_en;
+    }
+
+    private function normalizeTextValue(mixed $value): ?string
+    {
+        if (is_string($value)) {
+            $trimmed = trim($value);
+
+            return $trimmed !== '' ? $trimmed : null;
+        }
+
+        if (! is_array($value)) {
+            return null;
+        }
+
+        $items = Collection::make($value)
+            ->flatten()
+            ->filter(fn ($item) => is_string($item) || is_numeric($item))
+            ->map(fn ($item) => trim((string) $item))
+            ->filter()
+            ->values();
+
+        return $items->isNotEmpty() ? $items->implode(PHP_EOL) : null;
+    }
+
+    private function normalizeListValue(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return Collection::make($value)
+            ->flatten()
+            ->filter(fn ($item) => is_string($item) || is_numeric($item))
+            ->map(fn ($item) => trim((string) $item))
+            ->filter()
+            ->values()
+            ->all();
     }
 }
