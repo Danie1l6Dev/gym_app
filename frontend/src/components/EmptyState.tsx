@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { DIMENSIONS } from '@/constants';
@@ -11,9 +11,18 @@ type EmptyStateProps = {
   description: string;
   icon?: string;
   footer?: ReactNode;
+  actionLabel?: string;
+  onAction?: () => void;
 };
 
-export function EmptyState({ title, description, icon = 'dumbbell', footer }: EmptyStateProps) {
+export function EmptyState({
+  title,
+  description,
+  icon = 'dumbbell',
+  footer,
+  actionLabel,
+  onAction,
+}: EmptyStateProps) {
   const theme = useTheme();
 
   return (
@@ -32,6 +41,20 @@ export function EmptyState({ title, description, icon = 'dumbbell', footer }: Em
         </TextBlock>
       </View>
       {footer ? <View style={styles.footer}>{footer}</View> : null}
+      {actionLabel && onAction ? (
+        <Pressable
+          onPress={onAction}
+          style={({ pressed }) => [
+            styles.actionButton,
+            { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border },
+            pressed && styles.pressed,
+          ]}>
+          <MaterialCommunityIcons name="refresh" size={18} color={theme.colors.primary} />
+          <TextBlock variant="button" color="primary">
+            {actionLabel}
+          </TextBlock>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -58,5 +81,20 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: 4,
+  },
+  actionButton: {
+    minHeight: 48,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    alignSelf: 'flex-start',
+  },
+  pressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.99 }],
   },
 });

@@ -17,6 +17,7 @@ export const ROUTES = {
     profile: '/profile',
     muscles: '/muscles',
     exercises: '/exercises',
+    exerciseDetail: '/exercises/[id]',
   },
 } as const;
 

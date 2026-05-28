@@ -20,6 +20,7 @@ export default function AppLayout() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="muscles" options={{ headerShown: false }} />
       <Stack.Screen name="exercises" options={{ headerShown: false }} />
+      <Stack.Screen name="exercises/[id]" options={{ headerShown: false }} />
     </Stack>
   );
 }

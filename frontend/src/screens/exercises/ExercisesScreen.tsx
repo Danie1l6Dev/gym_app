@@ -1,74 +1,137 @@
-import { StyleSheet, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
 import { EmptyState } from '@/components/EmptyState';
+import { ExerciseCard } from '@/components/ExerciseCard';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
-import { DIMENSIONS } from '@/constants';
+import { DIMENSIONS, ROUTES } from '@/constants';
+import { useExercises } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
+import type { Exercise } from '@/interfaces/exercise';
 
-const EXERCISE_GROUPS = [
-  { name: 'Presses', count: '12', detail: 'Empuje superior e inferior' },
-  { name: 'Tracciones', count: '16', detail: 'Espalda, bíceps y agarre' },
-  { name: 'Aislados', count: '20', detail: 'Detalle y corrección' },
-] as const;
+type ExercisesParams = {
+  muscleId?: string;
+  muscleName?: string;
+};
 
 export default function ExercisesScreen() {
   const theme = useTheme();
+  const params = useLocalSearchParams<ExercisesParams>();
+  const { items, loading, refreshing, error, refresh, retry } = useExercises({
+    muscleId: params.muscleId,
+    perPage: 100,
+  });
+
+  const subtitle = params.muscleName && params.muscleId
+    ? `Filtrando ejercicios para ${params.muscleName}.`
+    : 'Catálogo visual de ejercicios con GIF y detalle.';
+
+  const header = (
+    <View style={styles.headerStack}>
+      <AppHeader title="Ejercicios" subtitle={subtitle} showBack={Boolean(params.muscleId)} />
+
+      <View
+        style={[
+          styles.heroCard,
+          { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+        ]}>
+        <TextBlock variant="eyebrow" color="primary">
+          Training library
+        </TextBlock>
+        <TextBlock variant="header">Catálogo optimizado para explorar y abrir detalle</TextBlock>
+        <TextBlock variant="body" color="muted">
+          GIFs con caché, estados de red claros y navegación limpia a la vista de detalle.
+        </TextBlock>
+      </View>
+    </View>
+  );
+
+  if (loading && items.length === 0) {
+    return (
+      <ScreenContainer>
+        {header}
+        <LoadingSpinner label="Cargando ejercicios" />
+      </ScreenContainer>
+    );
+  }
+
+  if (error && items.length === 0) {
+    return (
+      <ScreenContainer>
+        {header}
+        <EmptyState
+          title="No pudimos cargar los ejercicios"
+          description={error}
+          icon="alert-circle-outline"
+          actionLabel="Reintentar"
+          onAction={retry}
+        />
+      </ScreenContainer>
+    );
+  }
 
   return (
-    <ScreenContainer>
-      <AppHeader
-        title="Ejercicios"
-        subtitle="Plantilla preparada para el catálogo de ejercicios."
-        showBack
-      />
-
-      <EmptyState
-        title="Explorador de ejercicios listo"
-        description="La UI ya separa ejercicios por patrones, útil para futuras búsquedas y filtros."
-        icon="dumbbell"
-      />
-
-      <View style={styles.groups}>
-        {EXERCISE_GROUPS.map((group) => (
-          <View
-            key={group.name}
-            style={[
-              styles.groupCard,
-              { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
-            ]}>
-            <View style={styles.groupHeader}>
-              <TextBlock variant="title">{group.name}</TextBlock>
-              <TextBlock variant="header" color="primary">
-                {group.count}
-              </TextBlock>
-            </View>
-            <TextBlock variant="caption" color="muted">
-              {group.detail}
-            </TextBlock>
+    <ScreenContainer scrollable={false}>
+      <FlatList
+        style={styles.list}
+        data={items}
+        keyExtractor={(item) => String(item.id)}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={6}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        ListHeaderComponent={header}
+        ListEmptyComponent={
+          <EmptyState
+            title="No hay ejercicios disponibles"
+            description="Aquí aparecerá el catálogo del backend cuando el recurso responda datos."
+            icon="dumbbell"
+          />
+        }
+        renderItem={({ item }: { item: Exercise }) => (
+          <View style={styles.cardWrapper}>
+            <ExerciseCard
+              exercise={item}
+              onPress={() =>
+                router.push({
+                  pathname: ROUTES.app.exerciseDetail,
+                  params: {
+                    id: String(item.id),
+                  },
+                })
+              }
+            />
           </View>
-        ))}
-      </View>
+        )}
+      />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  groups: {
-    marginTop: 16,
-    gap: 12,
+  headerStack: {
+    gap: 16,
+    marginBottom: 8,
   },
-  groupCard: {
+  heroCard: {
     borderRadius: DIMENSIONS.cardRadius,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 18,
-    gap: 8,
+    padding: 20,
+    gap: 10,
   },
-  groupHeader: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: 12,
+  list: {
+    flex: 1,
+  },
+  listContent: {
+    paddingTop: 8,
+    paddingBottom: DIMENSIONS.screenPadding * 1.5,
+  },
+  cardWrapper: {
+    marginBottom: 14,
   },
 });
