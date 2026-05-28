@@ -1,10 +1,11 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS } from '@/constants';
+import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 
 const PROFILE_ITEMS = [
@@ -15,6 +16,7 @@ const PROFILE_ITEMS = [
 
 export default function ProfileScreen() {
   const theme = useTheme();
+  const { logout } = useAuth();
 
   return (
     <ScreenContainer>
@@ -47,6 +49,18 @@ export default function ProfileScreen() {
           </View>
         ))}
       </View>
+
+      <Pressable
+        onPress={() => void logout()}
+        style={({ pressed }) => [
+          styles.logoutButton,
+          { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border },
+          pressed && styles.pressed,
+        ]}>
+        <TextBlock variant="button" color="primary">
+          Cerrar sesión
+        </TextBlock>
+      </Pressable>
     </ScreenContainer>
   );
 }
@@ -61,5 +75,17 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: 18,
     gap: 6,
+  },
+  logoutButton: {
+    marginTop: 16,
+    minHeight: 52,
+    borderRadius: DIMENSIONS.cardRadius,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.99 }],
   },
 });

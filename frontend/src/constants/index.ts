@@ -1,4 +1,10 @@
 export const API_BASE_URL = 'https://api.example.com';
+export const API_TIMEOUT_MS = 15000;
+
+export const STORAGE_KEYS = {
+  authToken: '@gymapp/auth/token',
+  authUser: '@gymapp/auth/user',
+} as const;
 
 export const ROUTES = {
   auth: {
