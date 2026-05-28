@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Auth\LoginRequest;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,7 +22,9 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $user = Auth::user()->load('role');
+        /** @var User $user */
+        $user = Auth::user();
+        $user->load('role');
         $token = $user->createToken('mobile')->plainTextToken;
 
         return response()->json([
@@ -36,9 +39,12 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
+        /** @var User $user */
+        $user = $request->user();
+
         return response()->json([
             'success' => true,
-            'data' => $request->user()->load('role', 'latestMembership'),
+            'data' => $user->load('role', 'latestMembership'),
         ]);
     }
 
