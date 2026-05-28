@@ -8,3 +8,10 @@ export const TAB_ITEMS = [
   { name: 'explore', label: 'Explorar', href: ROUTES.app.explore },
   { name: 'profile', label: 'Perfil', href: ROUTES.app.profile },
 ] as const;
+
+export const ADMIN_TAB_ITEMS = [
+  { name: 'dashboard', label: 'Dashboard', href: ROUTES.app.adminDashboard },
+  { name: 'users', label: 'Usuarios', href: ROUTES.app.adminUsers },
+  { name: 'memberships', label: 'Membresías', href: ROUTES.app.adminMemberships },
+  { name: 'expiring', label: 'Vencimientos', href: ROUTES.app.adminExpiringMemberships },
+] as const;

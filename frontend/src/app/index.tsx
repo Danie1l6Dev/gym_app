@@ -1,15 +1,27 @@
 import { Redirect } from 'expo-router';
 
-import { ROUTES } from '@/constants';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { ROUTES } from '@/constants';
 import { useAuth } from '@/hooks/use-auth';
 
 export default function Index() {
-  const { loading, isAuthenticated } = useAuth();
+  const { loading, isAuthenticated, user } = useAuth();
 
   if (loading) {
     return <LoadingSpinner label="Preparando sesión" />;
   }
 
-  return <Redirect href={isAuthenticated ? ROUTES.app.home : ROUTES.auth.login} />;
+  if (!isAuthenticated) {
+    return <Redirect href={ROUTES.auth.login} />;
+  }
+
+  return (
+    <Redirect
+      href={
+        (user?.role?.slug === 'admin'
+          ? ROUTES.app.adminDashboard
+          : ROUTES.app.home) as never
+      }
+    />
+  );
 }

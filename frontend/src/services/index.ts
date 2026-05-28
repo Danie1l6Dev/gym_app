@@ -9,3 +9,12 @@ export {
   fetchRoutines,
   updateRoutine,
 } from './routines.service';
+export {
+  createAdminUser,
+  fetchAdminDashboard,
+  fetchAdminMemberships,
+  fetchAdminUserById,
+  fetchAdminUsers,
+  fetchExpiringMemberships,
+  updateAdminUser,
+} from './admin';

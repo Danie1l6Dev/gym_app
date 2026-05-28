@@ -6,12 +6,25 @@ export const STORAGE_KEYS = {
   authUser: '@gymapp/auth/user',
 } as const;
 
+export const ADMIN_ROLE_OPTIONS = [
+  { id: 1, slug: 'admin', label: 'Administrador' },
+  { id: 2, slug: 'user', label: 'Usuario' },
+] as const;
+
+export const DEFAULT_EXPIRING_WINDOW_DAYS = 30;
+
 export const ROUTES = {
   auth: {
     login: '/login',
   },
   app: {
     home: '/home',
+    adminDashboard: '/admin/dashboard',
+    adminUsers: '/admin/users',
+    adminUserCreate: '/admin/users/new',
+    adminUserDetail: '/admin/users/[id]',
+    adminMemberships: '/admin/memberships',
+    adminExpiringMemberships: '/admin/expiring',
     routines: '/routines',
     routineCreate: '/routines/new',
     routineDetail: '/routines/[id]',
