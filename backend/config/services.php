@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'exercise_api' => [
+        'url' => env('EXERCISE_API_URL'),
+        'key' => env('EXERCISE_API_KEY'),
+        'timeout' => env('EXERCISE_API_TIMEOUT', 30),
+        'source' => env('EXERCISE_API_SOURCE', 'exercise_api'),
+    ],
+
 ];
