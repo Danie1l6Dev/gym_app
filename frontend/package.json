@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "expo-router/entry",
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -10,6 +10,7 @@
     "axios": "^1.16.1",
     "expo": "~56.0.6",
     "expo-linear-gradient": "~56.0.4",
+    "expo-router": "^56.2.7",
     "expo-status-bar": "~56.0.4",
     "react": "19.2.3",
     "react-hook-form": "^7.76.1",
