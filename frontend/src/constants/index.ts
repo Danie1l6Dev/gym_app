@@ -13,6 +13,8 @@ export const ROUTES = {
   app: {
     home: '/home',
     routines: '/routines',
+    routineCreate: '/routines/new',
+    routineDetail: '/routines/[id]',
     explore: '/explore',
     profile: '/profile',
     muscles: '/muscles',

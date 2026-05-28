@@ -4,3 +4,6 @@ export { useAuth } from './use-auth';
 export { useMuscles } from './use-muscles';
 export { useExercises } from './use-exercises';
 export { useExercise } from './use-exercise';
+export { useRoutines } from './use-routines';
+export { useRoutine } from './use-routine';
+export { useCreateRoutine } from './use-create-routine';
