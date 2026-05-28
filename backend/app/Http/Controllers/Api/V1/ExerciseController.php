@@ -16,25 +16,30 @@ class ExerciseController extends Controller
 
         $exercises = Exercise::query()
             ->with('muscle')
-            ->when(isset($filters['muscle_id']), fn ($query) => $query->where('muscle_id', $filters['muscle_id']))
-            ->when(isset($filters['body_part']), fn ($query) => $query->where('body_part', $filters['body_part']))
-            ->when(isset($filters['target_muscle']), fn ($query) => $query->where('target_muscle', $filters['target_muscle']))
-            ->when(isset($filters['source']), fn ($query) => $query->where('source', $filters['source']))
-            ->when(! empty($filters['search'] ?? null), function ($query) use ($filters): void {
-                $search = $filters['search'];
-
-                $query->where(function ($inner) use ($search): void {
-                    $inner->where('name_original', 'like', "%{$search}%")
-                        ->orWhere('name_es', 'like', "%{$search}%")
-                        ->orWhere('body_part', 'like', "%{$search}%")
-                        ->orWhere('target_muscle', 'like', "%{$search}%");
-                });
-            })
-            ->orderBy('name_original')
+            ->publicFilters($filters)
+            ->searchCatalog($filters['search'] ?? null)
+            ->orderedForCatalog()
             ->paginate($filters['per_page'] ?? 15);
 
         return ExerciseResource::collection($exercises)
             ->additional(['message' => 'Ejercicios obtenidos correctamente.'])
+            ->response();
+    }
+
+    public function search(ExerciseIndexRequest $request): JsonResponse
+    {
+        $filters = $request->validated();
+        $term = $filters['search'] ?? $filters['name'] ?? $filters['nombre'] ?? null;
+
+        $exercises = Exercise::query()
+            ->with('muscle')
+            ->publicFilters($filters)
+            ->searchCatalog($term)
+            ->orderedForCatalog()
+            ->paginate($filters['per_page'] ?? 15);
+
+        return ExerciseResource::collection($exercises)
+            ->additional(['message' => 'Busqueda de ejercicios obtenida correctamente.'])
             ->response();
     }
 

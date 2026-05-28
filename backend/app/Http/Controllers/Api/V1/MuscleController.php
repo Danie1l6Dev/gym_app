@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\ExerciseIndexRequest;
 use App\Http\Requests\Api\V1\MuscleIndexRequest;
+use App\Http\Resources\Api\V1\ExerciseResource;
 use App\Http\Resources\Api\V1\MuscleResource;
+use App\Models\Exercise;
 use App\Models\Muscle;
 use Illuminate\Http\JsonResponse;
 
@@ -34,10 +37,24 @@ class MuscleController extends Controller
 
     public function show(Muscle $muscle): JsonResponse
     {
-        $muscle->load(['exercises' => fn ($query) => $query->orderBy('name_original')]);
-
         return MuscleResource::make($muscle)
             ->additional(['message' => 'Musculo obtenido correctamente.'])
+            ->response();
+    }
+
+    public function exercises(ExerciseIndexRequest $request, Muscle $muscle): JsonResponse
+    {
+        $filters = array_merge($request->validated(), ['muscle_id' => $muscle->id]);
+
+        $exercises = Exercise::query()
+            ->with('muscle')
+            ->publicFilters($filters)
+            ->searchCatalog($filters['search'] ?? null)
+            ->orderedForCatalog()
+            ->paginate($filters['per_page'] ?? 15);
+
+        return ExerciseResource::collection($exercises)
+            ->additional(['message' => 'Ejercicios del musculo obtenidos correctamente.'])
             ->response();
     }
 }

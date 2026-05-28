@@ -19,13 +19,15 @@ Route::prefix('v1')->group(function (): void {
         });
     });
 
+    Route::get('muscles', [MuscleController::class, 'index']);
+    Route::get('muscles/{muscle}/exercises', [MuscleController::class, 'exercises']);
+    Route::get('muscles/{muscle}', [MuscleController::class, 'show']);
+
+    Route::get('exercises/search', [ExerciseController::class, 'search']);
+    Route::get('exercises', [ExerciseController::class, 'index']);
+    Route::get('exercises/{exercise}', [ExerciseController::class, 'show']);
+
     Route::middleware('auth:sanctum')->group(function (): void {
-        Route::get('muscles', [MuscleController::class, 'index']);
-        Route::get('muscles/{muscle}', [MuscleController::class, 'show']);
-
-        Route::get('exercises', [ExerciseController::class, 'index']);
-        Route::get('exercises/{exercise}', [ExerciseController::class, 'show']);
-
         Route::get('routines', [RoutineController::class, 'index']);
         Route::post('routines', [RoutineController::class, 'store']);
         Route::get('routines/{routine}', [RoutineController::class, 'show']);

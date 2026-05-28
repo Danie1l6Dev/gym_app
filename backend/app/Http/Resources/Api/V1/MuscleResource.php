@@ -12,7 +12,7 @@ class MuscleResource extends JsonResource
         return [
             'id' => $this->id,
             'name_en' => $this->name_en,
-            'name_es' => $this->name_es,
+            'name_es' => $this->name_es ?: $this->name_en,
             'display_name' => $this->display_name,
             'slug' => $this->slug,
             'exercises' => ExerciseResource::collection($this->whenLoaded('exercises')),
