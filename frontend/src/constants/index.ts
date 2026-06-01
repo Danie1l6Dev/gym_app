@@ -1,4 +1,12 @@
-export const API_BASE_URL = 'https://api.example.com';
+const DEFAULT_API_BASE_URL = 'http://localhost:8000';
+
+function normalizeApiBaseUrl(value: string) {
+  return value.trim().replace(/\/$/, '');
+}
+
+const configuredApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+
+export const API_BASE_URL = normalizeApiBaseUrl(configuredApiBaseUrl || DEFAULT_API_BASE_URL);
 export const API_TIMEOUT_MS = 15000;
 
 export const STORAGE_KEYS = {

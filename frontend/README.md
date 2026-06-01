@@ -16,6 +16,10 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
+3. Configure the API URL for local development
+
+   Copy [`.env.example`](./.env.example) to `.env` and set `EXPO_PUBLIC_API_BASE_URL` to the Laravel backend URL, for example `http://localhost:8000`.
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)

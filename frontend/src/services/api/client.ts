@@ -55,9 +55,11 @@ apiClient.interceptors.response.use(
 
 function createApiError(error: AxiosError<ApiErrorResponse>): ApiError {
   const message =
-    error.response?.data?.message ||
-    error.message ||
-    'Ocurrió un error inesperado. Intenta nuevamente.';
+    error.code === 'ECONNABORTED'
+      ? 'La API tardó demasiado en responder. Revisa que `EXPO_PUBLIC_API_BASE_URL` apunte al backend correcto.'
+      : error.response?.data?.message ||
+        error.message ||
+        'Ocurrió un error inesperado. Intenta nuevamente.';
 
   const apiError = new Error(message) as ApiError;
   apiError.name = 'ApiError';
