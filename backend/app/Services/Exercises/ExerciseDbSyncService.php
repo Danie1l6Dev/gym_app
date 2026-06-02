@@ -24,10 +24,20 @@ class ExerciseDbSyncService
             'omitted' => 0,
             'total' => 0,
             'errors' => [],
+            'catalog' => [
+                'muscles' => 0,
+                'bodyparts' => 0,
+            ],
         ];
 
         try {
-            $payload = $this->client->fetchExercises();
+            $muscles = $this->client->fetchMuscles();
+            $bodyParts = $this->client->fetchBodyParts();
+            $this->syncMuscles($muscles);
+            $summary['catalog']['muscles'] = count($muscles);
+            $summary['catalog']['bodyparts'] = count($bodyParts);
+            usleep(8000000);
+            $payload = $this->fetchAllExercises();
         } catch (Throwable $throwable) {
             Log::error('ExerciseDB sync fetch failed.', [
                 'exception' => $throwable,
@@ -88,14 +98,76 @@ class ExerciseDbSyncService
         return $summary;
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function fetchAllExercises(): array
+    {
+        $items = [];
+        $seen = [];
+        $cursor = '';
+        $pageCount = 0;
+
+        do {
+            $response = $this->client->fetchExercises([
+                'limit' => 25,
+                'after' => $cursor,
+                'before' => '',
+            ]);
+
+            foreach ($response['items'] as $item) {
+                $externalId = $this->extractExternalId($item);
+
+                if ($externalId === null || isset($seen[$externalId])) {
+                    continue;
+                }
+
+                $seen[$externalId] = true;
+                $items[] = $item;
+            }
+
+            $cursor = (string) ($response['meta']['nextCursor'] ?? '');
+            $pageCount++;
+
+            if ($cursor !== '') {
+                if ($pageCount % 10 === 0) {
+                    sleep(12);
+                } else {
+                    usleep(400000);
+                }
+            }
+        } while ($cursor !== '');
+
+        return $items;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $muscles
+     */
+    private function syncMuscles(array $muscles): void
+    {
+        foreach ($muscles as $item) {
+            $name = $this->firstString($item, ['name']);
+
+            if ($name === null) {
+                continue;
+            }
+
+            $slug = Str::slug($name);
+
+            Muscle::query()->updateOrCreate(
+                ['slug' => $slug],
+                [
+                    'name_en' => $name,
+                    'name_es' => $name,
+                ]
+            );
+        }
+    }
+
     private function normalizeItem(array $item): ?array
     {
-        $externalId = $this->firstString($item, [
-            'external_id',
-            'id',
-            'exercise_id',
-            'uuid',
-        ]);
+        $externalId = $this->extractExternalId($item);
 
         $nameOriginal = $this->firstString($item, [
             'name_original',
@@ -107,11 +179,13 @@ class ExerciseDbSyncService
         $bodyPart = $this->firstString($item, [
             'body_part',
             'bodyPart',
+            'bodyParts',
         ]);
 
         $targetMuscle = $this->firstString($item, [
             'target_muscle',
             'targetMuscle',
+            'targetMuscles',
             'muscle',
         ]);
 
@@ -166,11 +240,11 @@ class ExerciseDbSyncService
         $instructionsEsText = $this->joinText($instructionsEs);
 
         return [
-            'source' => (string) (config('services.exercise_db.source') ?? config('services.exercise_api.source', 'exercise_db_v1')),
+            'source' => (string) (config('services.exercise_db.source') ?: config('services.exercise_api.source', 'exercise_db_v1')),
             'external_id' => $externalId,
             'attributes' => [
                 'muscle_id' => $muscle->id,
-                'source' => (string) (config('services.exercise_db.source') ?? config('services.exercise_api.source', 'exercise_db_v1')),
+                'source' => (string) (config('services.exercise_db.source') ?: config('services.exercise_api.source', 'exercise_db_v1')),
                 'external_id' => $externalId,
                 'name_original' => $nameOriginal,
                 'name_es' => $nameEs,
@@ -187,7 +261,6 @@ class ExerciseDbSyncService
                 'name_en' => $nameOriginal,
                 'description_en' => $instructionsOriginalText,
                 'description_es' => $instructionsEsText,
-                'source_payload' => $rawPayload,
             ],
         ];
     }
@@ -222,13 +295,50 @@ class ExerciseDbSyncService
     {
         foreach ($keys as $key) {
             $value = Arr::get($payload, $key);
+            $text = $this->stringValue($value);
 
-            if (is_string($value) && trim($value) !== '') {
-                return trim($value);
+            if ($text !== null) {
+                return $text;
             }
+        }
 
-            if (is_numeric($value)) {
-                return trim((string) $value);
+        return null;
+    }
+
+    private function extractExternalId(array $payload): ?string
+    {
+        return $this->firstString($payload, [
+            'external_id',
+            'exerciseId',
+            'id',
+            'exercise_id',
+            'uuid',
+        ]);
+    }
+
+    private function stringValue(mixed $value): ?string
+    {
+        if (is_string($value)) {
+            $trimmed = trim($value);
+
+            return $trimmed !== '' ? $trimmed : null;
+        }
+
+        if (is_numeric($value)) {
+            $trimmed = trim((string) $value);
+
+            return $trimmed !== '' ? $trimmed : null;
+        }
+
+        if (is_array($value)) {
+            foreach (Arr::flatten($value) as $item) {
+                if (is_string($item) || is_numeric($item)) {
+                    $trimmed = trim((string) $item);
+
+                    if ($trimmed !== '') {
+                        return $trimmed;
+                    }
+                }
             }
         }
 
@@ -253,7 +363,7 @@ class ExerciseDbSyncService
 
         $items = [];
 
-        foreach ($value as $item) {
+        foreach (Arr::flatten($value) as $item) {
             if (is_string($item) || is_numeric($item)) {
                 $trimmed = trim((string) $item);
 
@@ -264,6 +374,25 @@ class ExerciseDbSyncService
         }
 
         return array_values(array_unique($items));
+    }
+
+    private function extractNames(array $items): array
+    {
+        $names = [];
+
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $name = $this->firstString($item, ['name', 'slug']);
+
+            if ($name !== null) {
+                $names[] = $name;
+            }
+        }
+
+        return array_values(array_unique($names));
     }
 
     private function joinText(array $items): ?string
@@ -294,7 +423,6 @@ class ExerciseDbSyncService
             'name_en',
             'description_en',
             'description_es',
-            'source_payload',
         ];
 
         foreach ($keys as $key) {

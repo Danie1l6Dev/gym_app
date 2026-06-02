@@ -31,13 +31,13 @@ export interface AdminDashboardData {
 }
 
 export interface AdminRoleOption {
-  id: number;
-  slug: 'admin' | 'user';
+  value: 'admin' | 'user';
   label: string;
 }
 
 export interface CreateUserPayload {
-  role_id: number;
+  role_id?: number | null;
+  role_slug?: 'admin' | 'user' | null;
   name: string;
   username?: string | null;
   email: string;
@@ -50,6 +50,9 @@ export interface CreateUserPayload {
   weight?: number | null;
   profile_photo?: string | null;
   is_active?: boolean;
+  membership_plan_type?: 'weekly' | 'monthly' | null;
+  membership_ends_at?: string | null;
+  membership_notes?: string | null;
 }
 
 export interface AdminUsersQuery {

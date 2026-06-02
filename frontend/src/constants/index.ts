@@ -15,8 +15,13 @@ export const STORAGE_KEYS = {
 } as const;
 
 export const ADMIN_ROLE_OPTIONS = [
-  { id: 1, slug: 'admin', label: 'Administrador' },
-  { id: 2, slug: 'user', label: 'Usuario' },
+  { value: 'admin', label: 'Administrador' },
+  { value: 'user', label: 'Usuario' },
+] as const;
+
+export const MEMBERSHIP_PLAN_OPTIONS = [
+  { value: 'weekly', label: 'Semanal', price: 35000 },
+  { value: 'monthly', label: 'Mensual', price: 120000 },
 ] as const;
 
 export const DEFAULT_EXPIRING_WINDOW_DAYS = 30;

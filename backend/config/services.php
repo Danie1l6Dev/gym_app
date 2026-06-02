@@ -43,11 +43,14 @@ return [
     ],
 
     'exercise_db' => [
-        'base_url' => env('EXERCISE_DB_BASE_URL', env('EXERCISE_API_URL')),
-        'exercises_path' => env('EXERCISE_DB_EXERCISES_PATH', '/api/v1/exercises'),
-        'key' => env('EXERCISE_DB_KEY', env('EXERCISE_API_KEY')),
-        'timeout' => env('EXERCISE_DB_TIMEOUT', env('EXERCISE_API_TIMEOUT', 30)),
-        'source' => env('EXERCISE_DB_SOURCE', 'exercise_db_v1'),
+        'base_url' => env('EXERCISE_DB_BASE_URL') ?: env('EXERCISE_API_URL') ?: 'https://oss.exercisedb.dev',
+        'muscles_path' => env('EXERCISE_DB_MUSCLES_PATH') ?: '/api/v1/muscles',
+        'bodyparts_path' => env('EXERCISE_DB_BODYPARTS_PATH') ?: '/api/v1/bodyparts',
+        'exercises_path' => env('EXERCISE_DB_EXERCISES_PATH') ?: '/api/v1/exercises',
+        'key' => env('EXERCISE_DB_KEY') ?: env('EXERCISE_API_KEY'),
+        'timeout' => env('EXERCISE_DB_TIMEOUT') ?: env('EXERCISE_API_TIMEOUT') ?: 30,
+        'source' => env('EXERCISE_DB_SOURCE') ?: 'exercise_db_v1',
+        'verify_ssl' => env('EXERCISE_DB_VERIFY_SSL', false),
     ],
 
 ];

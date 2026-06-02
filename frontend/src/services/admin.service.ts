@@ -111,8 +111,11 @@ export async function fetchExpiringMemberships(query: AdminMembershipsQuery = {}
   return fetchUpcomingMembershipsPage(query);
 }
 
-export async function syncAdminExercises() {
-  const response = await apiClient.post<Single<ExerciseSyncSummary>>('/api/v1/admin/exercises/sync');
+export async function syncAdminExercises(token?: string | null) {
+  const response = await apiClient.post<Single<ExerciseSyncSummary>>('/api/v1/admin/exercises/sync', null, {
+    timeout: 300000,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
   return response.data;
 }
 

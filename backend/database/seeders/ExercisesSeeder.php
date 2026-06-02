@@ -188,12 +188,6 @@ class ExercisesSeeder extends Seeder
                     'name_en' => $item['name_original'],
                     'description_en' => implode(PHP_EOL, $item['instructions_original']),
                     'description_es' => implode(PHP_EOL, $item['instructions_es']),
-                    'source_payload' => [
-                        'id' => $item['external_id'],
-                        'name' => $item['name_original'],
-                        'description' => implode(PHP_EOL, $item['instructions_original']),
-                        'target_muscle' => $item['target_muscle'],
-                    ],
                 ]
             );
         }

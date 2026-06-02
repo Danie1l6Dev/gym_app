@@ -16,13 +16,14 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS, ROUTES } from '@/constants';
-import { useExercises } from '@/hooks';
+import { useAuth, useExercises } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
 import { syncAdminExercises } from '@/services';
 import type { Exercise } from '@/interfaces/exercise';
 
 export default function ExercisesScreen() {
   const theme = useTheme();
+  const { token } = useAuth();
   const { items, loading, refreshing, error, refresh, retry } = useExercises({ perPage: 100 });
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
@@ -46,11 +47,15 @@ export default function ExercisesScreen() {
     setSyncMessage(null);
 
     try {
-      const response = await syncAdminExercises();
+      const response = await syncAdminExercises(token);
       const data = response?.data ?? {};
-      setSyncMessage(
-        `Creados: ${data.created ?? 0} · Actualizados: ${data.updated ?? 0} · Omitidos: ${data.omitted ?? 0}`
-      );
+      if (Array.isArray(data.errors) && data.errors.length > 0) {
+        setSyncError(data.errors[0] ?? 'No se pudo sincronizar los ejercicios.');
+      } else {
+        setSyncMessage(
+          `Creados: ${data.created ?? 0} · Actualizados: ${data.updated ?? 0} · Omitidos: ${data.omitted ?? 0}`
+        );
+      }
       await refresh();
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : 'No se pudo sincronizar los ejercicios.');
@@ -98,6 +103,10 @@ export default function ExercisesScreen() {
         <TextBlock variant="body" color="muted">
           La lista ya no depende de la llamada directa a la API externa; puedes sincronizar cuando
           necesites actualizar GIFs, textos o metadatos.
+        </TextBlock>
+        <TextBlock variant="caption" color="subtle">
+          La sincronización puede tardar varios minutos porque consulta el catálogo completo y
+          evita bloqueos del proveedor externo.
         </TextBlock>
       </View>
 
