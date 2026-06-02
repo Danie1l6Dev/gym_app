@@ -1,7 +1,17 @@
+import type { Membership } from './membership';
+
 export interface User {
   id: string | number;
   name: string;
   email: string;
+  username?: string | null;
+  phone?: string | null;
+  birth_date?: string | null;
+  gender?: string | null;
+  height?: string | number | null;
+  weight?: string | number | null;
+  is_active?: boolean;
+  latest_membership?: Membership | null;
   role?: {
     id?: string | number;
     name?: string;

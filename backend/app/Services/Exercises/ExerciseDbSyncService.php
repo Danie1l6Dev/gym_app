@@ -51,7 +51,6 @@ class ExerciseDbSyncService
                 }
 
                 $exercise = Exercise::query()
-                    ->where('source', $normalized['source'])
                     ->where('external_id', $normalized['external_id'])
                     ->first();
 

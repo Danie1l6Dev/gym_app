@@ -4,37 +4,55 @@ import { AppHeader } from '@/components/AppHeader';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS } from '@/constants';
+import { useExercises, useMuscles, useRoutines } from '@/hooks';
+import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
-
-const METRICS = [
-  { label: 'Rutinas', value: '12', detail: 'listas para usar' },
-  { label: 'Músculos', value: '8', detail: 'grupos base' },
-  { label: 'Ejercicios', value: '48', detail: 'catálogo inicial' },
-] as const;
 
 export default function HomeScreen() {
   const theme = useTheme();
+  const { user } = useAuth();
+  const routines = useRoutines();
+  const muscles = useMuscles();
+  const exercises = useExercises({ perPage: 100 });
+
+  const metrics = [
+    {
+      label: 'Rutinas',
+      value: String(routines.items.length),
+      detail: routines.error ?? 'disponibles para tu sesión',
+    },
+    {
+      label: 'Músculos',
+      value: String(muscles.items.length),
+      detail: muscles.error ?? 'grupos musculares registrados',
+    },
+    {
+      label: 'Ejercicios',
+      value: String(exercises.items.length),
+      detail: exercises.error ?? 'ejercicios del catálogo local',
+    },
+  ] as const;
 
   return (
     <ScreenContainer>
       <AppHeader
         title="Inicio"
-        subtitle="Dashboard visual del gimnasio, listo para recibir datos reales."
+        subtitle={`Hola${user?.name ? `, ${user.name}` : ''}. Resumen conectado al backend.`}
       />
 
       <View style={[styles.heroCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
         <TextBlock variant="eyebrow" color="primary">
-          Daily focus
+          Resumen diario
         </TextBlock>
-        <TextBlock variant="header">Entrena con una interfaz clara y rápida</TextBlock>
+        <TextBlock variant="header">Entrena con datos reales del sistema</TextBlock>
         <TextBlock variant="body" color="muted">
-          Este frontend queda preparado para crecer con backend, auth y datos en tiempo real sin
-          reestructurar la base visual.
+          Este panel usa los servicios actuales de rutinas, músculos y ejercicios para mostrar el
+          estado disponible en la API.
         </TextBlock>
       </View>
 
       <View style={styles.metricsGrid}>
-        {METRICS.map((metric) => (
+        {metrics.map((metric) => (
           <View
             key={metric.label}
             style={[

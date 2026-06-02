@@ -27,11 +27,11 @@ class AuthController extends Controller
 
         /** @var User $user */
         $user = Auth::user();
-        $user->load('role');
+        $user->load('role', 'latestMembership');
         $token = $user->createToken('mobile')->plainTextToken;
 
         return response()->json([
-            'message' => 'Inicio de sesion correcto.',
+            'message' => 'Inicio de sesión correcto.',
             'data' => [
                 'user' => UserResource::make($user),
                 'token' => $token,
@@ -54,7 +54,7 @@ class AuthController extends Controller
         $request->user()?->currentAccessToken()?->delete();
 
         return response()->json([
-            'message' => 'Sesion cerrada.',
+            'message' => 'Sesión cerrada.',
             'data' => null,
         ]);
     }

@@ -22,7 +22,7 @@ return new class extends Migration
             $table->timestamp('synced_at')->nullable();
             $table->timestamps();
 
-            $table->unique(['source', 'external_id']);
+            $table->unique('external_id');
             $table->index(['muscle_id', 'name_en']);
         });
     }

@@ -7,32 +7,40 @@ import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS } from '@/constants';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
-
-const PROFILE_ITEMS = [
-  { label: 'Membresía', value: 'Premium', detail: 'sin integrar todavía' },
-  { label: 'Objetivo', value: 'Fuerza', detail: 'perfil editable luego' },
-  { label: 'Preferencias', value: 'Oscuro', detail: 'tema base del producto' },
-] as const;
+import { formatShortDate } from '@/utils/dates';
 
 export default function ProfileScreen() {
   const theme = useTheme();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const membership = user?.latest_membership;
+
+  const profileItems = [
+    { label: 'Correo', value: user?.email ?? 'No disponible', detail: 'dato de la cuenta' },
+    { label: 'Rol', value: user?.role?.name ?? user?.role?.slug ?? 'Usuario', detail: 'permiso actual' },
+    {
+      label: 'Membresía',
+      value: membership?.plan_label ?? 'Sin membresía activa',
+      detail: membership?.ends_at ? `vence el ${formatShortDate(membership.ends_at)}` : 'sin vencimiento registrado',
+    },
+  ] as const;
 
   return (
     <ScreenContainer>
       <AppHeader
-        title="Perfil"
-        subtitle="Zona de usuario y ajustes personales."
+        title={user?.name ?? 'Perfil'}
+        subtitle="Datos de la sesión autenticada."
       />
 
-      <EmptyState
-        title="Perfil preparado"
-        description="Más adelante aquí entrarán datos de usuario, membresía, progreso y ajustes."
-        icon="account-outline"
-      />
+      {!user ? (
+        <EmptyState
+          title="Sin datos de usuario"
+          description="Inicia sesión nuevamente para cargar el perfil."
+          icon="account-alert-outline"
+        />
+      ) : null}
 
       <View style={styles.list}>
-        {PROFILE_ITEMS.map((item) => (
+        {profileItems.map((item) => (
           <View
             key={item.label}
             style={[

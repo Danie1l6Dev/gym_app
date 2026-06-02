@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Admin;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateMembershipRequest extends FormRequest
 {
@@ -14,11 +15,12 @@ class UpdateMembershipRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'plan_name' => ['sometimes', 'required', 'string', 'max:255'],
+            'plan_type' => ['sometimes', 'required', Rule::in(['weekly', 'monthly'])],
             'starts_at' => ['sometimes', 'required', 'date'],
             'ends_at' => ['sometimes', 'required', 'date'],
-            'status' => ['sometimes', 'string', 'max:50'],
+            'status' => ['sometimes', Rule::in(['active', 'expired', 'cancelled'])],
             'price' => ['nullable', 'numeric', 'min:0'],
+            'paid_at' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
         ];
     }

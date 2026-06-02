@@ -64,7 +64,7 @@ export default function UserDetailScreen() {
           <TextBlock variant="caption" color="muted">
             Plan
           </TextBlock>
-          <TextBlock variant="caption">{membership?.plan_name ?? 'Sin membresía'}</TextBlock>
+          <TextBlock variant="caption">{membership?.plan_label ?? 'Sin membresía'}</TextBlock>
         </View>
         <View style={styles.row}>
           <TextBlock variant="caption" color="muted">

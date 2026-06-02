@@ -16,6 +16,7 @@ type MembershipCardProps = {
 function MembershipCardBase({ membership, onPress }: MembershipCardProps) {
   const theme = useTheme();
   const statusTone = membership.status === 'active' ? theme.colors.primary : theme.colors.accent;
+  const planLabel = membership.plan_label ?? resolvePlanLabel(membership.plan_type);
 
   return (
     <Pressable
@@ -28,7 +29,7 @@ function MembershipCardBase({ membership, onPress }: MembershipCardProps) {
       ]}>
       <View style={styles.header}>
         <View style={styles.textGroup}>
-          <TextBlock variant="title">{membership.plan_name ?? 'Plan'}</TextBlock>
+          <TextBlock variant="title">{planLabel}</TextBlock>
           <TextBlock variant="caption" color="muted">
             {membership.user?.name ?? 'Usuario'}
           </TextBlock>
@@ -60,6 +61,18 @@ function MembershipCardBase({ membership, onPress }: MembershipCardProps) {
 }
 
 export const MembershipCard = memo(MembershipCardBase);
+
+function resolvePlanLabel(planType?: string | null) {
+  if (planType === 'weekly') {
+    return 'Semanal';
+  }
+
+  if (planType === 'monthly') {
+    return 'Mensual';
+  }
+
+  return 'Plan';
+}
 
 const styles = StyleSheet.create({
   card: {

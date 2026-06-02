@@ -22,7 +22,7 @@ class MembershipController extends Controller
             ->paginate($filters['per_page'] ?? 15);
 
         return MembershipResource::collection($memberships)
-            ->additional(['message' => 'Membresias obtenidas correctamente.'])
+            ->additional(['message' => 'Membresías obtenidas correctamente.'])
             ->response();
     }
 
@@ -39,7 +39,7 @@ class MembershipController extends Controller
             ->paginate($filters['per_page'] ?? 15);
 
         return MembershipResource::collection($memberships)
-            ->additional(['message' => 'Membresias proximas a vencer obtenidas correctamente.'])
+            ->additional(['message' => 'Membresías próximas a vencer obtenidas correctamente.'])
             ->response();
     }
 
@@ -48,7 +48,7 @@ class MembershipController extends Controller
         $membership = Membership::create($request->validated());
 
         return MembershipResource::make($membership->load('user'))
-            ->additional(['message' => 'Membresia creada correctamente.'])
+            ->additional(['message' => 'Membresía creada correctamente.'])
             ->response()
             ->setStatusCode(201);
     }
@@ -58,7 +58,7 @@ class MembershipController extends Controller
         $membership->update($request->validated());
 
         return MembershipResource::make($membership->load('user'))
-            ->additional(['message' => 'Membresia actualizada correctamente.'])
+            ->additional(['message' => 'Membresía actualizada correctamente.'])
             ->response();
     }
 }

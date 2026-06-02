@@ -22,7 +22,7 @@ class MembershipsSeeder extends Seeder
                 'ends_at' => $today->copy()->addDays(20),
                 'price' => 120000,
                 'paid_at' => $today->copy()->subDays(10)->setTime(9, 0),
-                'notes' => 'Membresia activa del administrador.',
+                'notes' => 'Membresía activa del administrador.',
             ],
             [
                 'email' => 'user1@gymapp.com',
@@ -62,7 +62,7 @@ class MembershipsSeeder extends Seeder
                 'ends_at' => $today->copy()->subDays(11),
                 'price' => 35000,
                 'paid_at' => $today->copy()->subDays(18)->setTime(10, 0),
-                'notes' => 'Membresia expirada.',
+                'notes' => 'Membresía expirada.',
             ],
             [
                 'email' => 'user4@gymapp.com',
@@ -72,7 +72,7 @@ class MembershipsSeeder extends Seeder
                 'ends_at' => $today->copy()->addDays(27),
                 'price' => 120000,
                 'paid_at' => $today->copy()->subDays(3)->setTime(11, 0),
-                'notes' => 'Membresia activa sin vencer pronto.',
+                'notes' => 'Membresía activa sin vencer pronto.',
             ],
             [
                 'email' => 'user5@gymapp.com',
@@ -82,7 +82,7 @@ class MembershipsSeeder extends Seeder
                 'ends_at' => $today->copy()->addDays(1),
                 'price' => 35000,
                 'paid_at' => $today->copy()->subDays(8)->setTime(12, 0),
-                'notes' => 'Membresia cancelada para probar historial.',
+                'notes' => 'Membresía cancelada para probar historial.',
             ],
         ];
 

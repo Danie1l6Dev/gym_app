@@ -12,11 +12,12 @@ class Membership extends Model
 
     protected $fillable = [
         'user_id',
-        'plan_name',
+        'plan_type',
         'starts_at',
         'ends_at',
         'status',
         'price',
+        'paid_at',
         'notes',
     ];
 
@@ -26,6 +27,7 @@ class Membership extends Model
             'starts_at' => 'date',
             'ends_at' => 'date',
             'price' => 'decimal:2',
+            'paid_at' => 'datetime',
         ];
     }
 
