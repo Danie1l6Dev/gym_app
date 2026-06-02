@@ -31,6 +31,7 @@ export const ROUTES = {
     adminUsers: '/admin/users',
     adminUserCreate: '/admin/users/new',
     adminUserDetail: '/admin/users/[id]',
+    adminExercises: '/admin/exercises',
     adminMemberships: '/admin/memberships',
     adminExpiringMemberships: '/admin/expiring',
     routines: '/routines',

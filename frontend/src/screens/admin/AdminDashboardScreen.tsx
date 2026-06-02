@@ -88,27 +88,45 @@ export default function AdminDashboardScreen() {
             { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
           ]}>
           <View style={styles.sectionHeader}>
-            <TextBlock variant="title">Accesos rápidos</TextBlock>
+            <TextBlock variant="title">Herramientas admin</TextBlock>
             <TextBlock variant="caption" color="subtle">
-              Gestión diaria
+              Gestión diaria y catálogos
             </TextBlock>
           </View>
 
           <View style={styles.quickActions}>
             {[
               { label: 'Usuarios', href: ROUTES.app.adminUsers },
+              { label: 'Administradores', href: ROUTES.app.adminUsers, params: { role: 'admin' } },
+              { label: 'Ejercicios', href: ROUTES.app.adminExercises },
+              { label: 'Rutina personalizada', href: ROUTES.app.routineCreate },
+              { label: 'Músculos', href: ROUTES.app.muscles },
               { label: 'Membresías', href: ROUTES.app.adminMemberships },
               { label: 'Vencimientos', href: ROUTES.app.adminExpiringMemberships },
             ].map((action) => (
               <Pressable
                 key={action.label}
-                onPress={() => router.push(action.href as never)}
+                onPress={() =>
+                  router.push(
+                    (action.params
+                      ? { pathname: action.href as never, params: action.params }
+                      : action.href) as never
+                  )
+                }
                 style={({ pressed }) => [styles.quickAction, pressed && styles.pressed]}>
                 <TextBlock variant="button" color="primary">
                   {action.label}
                 </TextBlock>
               </Pressable>
             ))}
+          </View>
+
+          <View style={styles.adminNote}>
+            <TextBlock variant="caption" color="subtle">
+              El módulo de ejercicios permite sincronizar el catálogo local con la API externa.
+              Músculos y rutinas ya quedan accesibles desde aquí para que el flujo de administración
+              no se sienta igual al de un usuario normal.
+            </TextBlock>
           </View>
         </View>
 
@@ -187,5 +205,8 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.9,
     transform: [{ scale: 0.99 }],
+  },
+  adminNote: {
+    marginTop: 4,
   },
 });

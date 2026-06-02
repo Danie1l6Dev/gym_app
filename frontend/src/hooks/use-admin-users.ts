@@ -3,7 +3,9 @@ import { useCallback, useEffect, useState } from 'react';
 import type { AdminUser } from '@/interfaces/admin';
 import { fetchAdminUsers } from '@/services';
 
-export function useAdminUsers(search: string, perPage = 15) {
+type AdminUsersRoleFilter = 'user' | 'admin';
+
+export function useAdminUsers(search: string, perPage = 15, role?: AdminUsersRoleFilter) {
   const [items, setItems] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -19,6 +21,7 @@ export function useAdminUsers(search: string, perPage = 15) {
           search: search.trim() || undefined,
           page: nextPage,
           perPage,
+          role,
         });
 
         setItems((current) => (replace ? response.items : [...current, ...response.items]));
@@ -31,7 +34,7 @@ export function useAdminUsers(search: string, perPage = 15) {
         setRefreshing(false);
       }
     },
-    [perPage, search]
+    [perPage, role, search]
   );
 
   const refresh = useCallback(async () => {
@@ -59,7 +62,6 @@ export function useAdminUsers(search: string, perPage = 15) {
   useEffect(() => {
     const timeout = setTimeout(() => {
       setLoading(true);
-      setItems([]);
       void load(1, true);
     }, 0);
 

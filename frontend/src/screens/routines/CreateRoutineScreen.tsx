@@ -12,6 +12,7 @@ import { router } from 'expo-router';
 import { AppHeader } from '@/components/AppHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { SearchBar } from '@/components/SearchBar';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS, ROUTES } from '@/constants';
@@ -214,15 +215,11 @@ export default function CreateRoutineScreen() {
             </TextBlock>
           </View>
 
-          <TextInput
+          <SearchBar
+            label="Buscar ejercicios"
+            placeholder="Buscar por nombre o músculo"
             value={search}
             onChangeText={setSearch}
-            placeholder="Buscar por nombre o músculo"
-            placeholderTextColor={theme.colors.textSubtle}
-            style={[
-              styles.input,
-              { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border, color: theme.colors.text },
-            ]}
           />
 
           {error ? (

@@ -113,6 +113,54 @@ class GymAppApiTest extends TestCase
             ->assertJsonPath('data.plan_label', 'Mensual');
     }
 
+    public function test_admin_user_list_excludes_admin_accounts(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $admin = User::query()->where('email', 'admin@gymapp.com')->firstOrFail();
+
+        $response = $this->actingAs($admin, 'sanctum')->getJson('/api/v1/admin/users');
+
+        $response->assertOk();
+
+        $emails = collect($response->json('data'))->pluck('email');
+
+        $this->assertFalse($emails->contains('admin@gymapp.com'));
+        $this->assertTrue($emails->contains('user1@gymapp.com'));
+    }
+
+    public function test_admin_can_filter_users_by_role(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $admin = User::query()->where('email', 'admin@gymapp.com')->firstOrFail();
+
+        $response = $this->actingAs($admin, 'sanctum')->getJson('/api/v1/admin/users?role=admin');
+
+        $response->assertOk();
+
+        $emails = collect($response->json('data'))->pluck('email');
+
+        $this->assertTrue($emails->contains('admin@gymapp.com'));
+        $this->assertFalse($emails->contains('user1@gymapp.com'));
+    }
+
+    public function test_admin_can_load_upcoming_memberships_with_string_days_parameter(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $admin = User::query()->where('email', 'admin@gymapp.com')->firstOrFail();
+
+        $response = $this->actingAs($admin, 'sanctum')->getJson('/api/v1/admin/memberships/upcoming?days=30&per_page=5');
+
+        $response
+            ->assertOk()
+            ->assertJsonStructure([
+                'data',
+                'message',
+            ]);
+    }
+
     public function test_admin_exercise_sync_reports_configuration_error_without_crashing(): void
     {
         $this->seed(DatabaseSeeder::class);

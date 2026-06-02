@@ -19,6 +19,15 @@ class UserController extends Controller
 
         $users = User::query()
             ->with(['role', 'latestMembership'])
+            ->when(isset($filters['role']), function ($query) use ($filters): void {
+                $query->whereHas('role', function ($roleQuery) use ($filters): void {
+                    $roleQuery->where('slug', $filters['role']);
+                });
+            }, function ($query): void {
+                $query->whereHas('role', function ($roleQuery): void {
+                    $roleQuery->where('slug', '!=', 'admin');
+                });
+            })
             ->when(isset($filters['search']), function ($query) use ($filters): void {
                 $search = $filters['search'];
 

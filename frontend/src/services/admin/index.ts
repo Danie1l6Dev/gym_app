@@ -5,5 +5,6 @@ export {
   fetchAdminUserById,
   fetchAdminUsers,
   fetchExpiringMemberships,
+  syncAdminExercises,
   updateAdminUser,
 } from '../admin.service';

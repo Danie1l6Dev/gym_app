@@ -56,6 +56,7 @@ export interface AdminUsersQuery {
   search?: string;
   page?: number;
   perPage?: number;
+  role?: 'user' | 'admin';
 }
 
 export interface AdminMembershipsQuery {

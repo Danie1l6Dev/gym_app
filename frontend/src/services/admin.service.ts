@@ -29,6 +29,14 @@ type Single<T> = {
   message?: string;
 };
 
+type ExerciseSyncSummary = {
+  created?: number;
+  updated?: number;
+  omitted?: number;
+  total?: number;
+  errors?: string[];
+};
+
 function normalizeUserResponse(payload: Paginated<AdminUser>) {
   return normalizeCollectionResponse(payload);
 }
@@ -43,6 +51,7 @@ async function fetchAdminUsersPage(query: AdminUsersQuery = {}) {
       search: query.search,
       page: query.page,
       per_page: query.perPage,
+      role: query.role,
     },
   });
 
@@ -100,6 +109,11 @@ export async function fetchAdminMemberships(query: AdminMembershipsQuery = {}) {
 
 export async function fetchExpiringMemberships(query: AdminMembershipsQuery = {}) {
   return fetchUpcomingMembershipsPage(query);
+}
+
+export async function syncAdminExercises() {
+  const response = await apiClient.post<Single<ExerciseSyncSummary>>('/api/v1/admin/exercises/sync');
+  return response.data;
 }
 
 export async function fetchAdminDashboard(): Promise<AdminDashboardData> {

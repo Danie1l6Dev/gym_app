@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
@@ -32,6 +32,7 @@ const FORM_FIELDS: {
 
 export default function CreateUserScreen() {
   const theme = useTheme();
+  const params = useLocalSearchParams<{ role?: string }>();
   const { loading, error, submit } = useCreateUser();
   const [values, setValues] = useState({
     name: '',
@@ -40,7 +41,7 @@ export default function CreateUserScreen() {
     password: '',
     passwordConfirmation: '',
   });
-  const [roleId, setRoleId] = useState<number>(2);
+  const [roleId, setRoleId] = useState<number>(params.role === 'admin' ? 1 : 2);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const canSubmit = useMemo(

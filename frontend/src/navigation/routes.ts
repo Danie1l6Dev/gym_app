@@ -12,6 +12,7 @@ export const TAB_ITEMS = [
 export const ADMIN_TAB_ITEMS = [
   { name: 'dashboard', label: 'Dashboard', href: ROUTES.app.adminDashboard },
   { name: 'users', label: 'Usuarios', href: ROUTES.app.adminUsers },
+  { name: 'exercises', label: 'Ejercicios', href: ROUTES.app.adminExercises },
   { name: 'memberships', label: 'Membresías', href: ROUTES.app.adminMemberships },
   { name: 'expiring', label: 'Vencimientos', href: ROUTES.app.adminExpiringMemberships },
 ] as const;

@@ -29,7 +29,7 @@ class MembershipController extends Controller
     public function upcoming(MembershipIndexRequest $request): JsonResponse
     {
         $filters = $request->validated();
-        $days = $filters['days'] ?? 30;
+        $days = (int) ($filters['days'] ?? 30);
 
         $memberships = Membership::query()
             ->with('user')

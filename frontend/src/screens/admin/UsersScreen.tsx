@@ -1,11 +1,10 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
   RefreshControl,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
 
@@ -13,6 +12,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { AdminUserCard } from '@/components/AdminUserCard';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { SearchBar } from '@/components/SearchBar';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS, ROUTES } from '@/constants';
@@ -20,16 +20,44 @@ import { useAdminUsers } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
 import type { AdminUser } from '@/interfaces/admin';
 
+type UsersView = 'users' | 'admins';
+
 export default function UsersScreen() {
   const theme = useTheme();
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [view, setView] = useState<UsersView>('users');
+  const role = view === 'admins' ? 'admin' : 'user';
   const { items, loading, refreshing, error, refresh, retry, loadMore, hasMore } =
-    useAdminUsers(search, 12);
+    useAdminUsers(debouncedSearch, 12, role);
+
+  const createLabel = view === 'admins' ? 'Crear admin' : 'Crear usuario';
+  const emptyTitle = view === 'admins' ? 'Sin administradores' : 'Sin usuarios';
+  const emptyDescription =
+    view === 'admins'
+      ? 'No hay administradores registrados en este momento.'
+      : 'Agrega usuarios o ajusta el criterio de búsqueda.';
+
+  const subtitle = useMemo(
+    () =>
+      view === 'admins'
+        ? 'Listado de administradores del aplicativo'
+        : 'Listado, búsqueda y detalle de cuentas',
+    [view]
+  );
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [search]);
 
   if (loading && items.length === 0) {
     return (
       <ScreenContainer>
-        <AppHeader title="Usuarios" subtitle="Gestión de usuarios del gimnasio" />
+        <AppHeader title="Usuarios" subtitle={subtitle} />
         <LoadingSpinner label="Cargando usuarios" />
       </ScreenContainer>
     );
@@ -38,7 +66,7 @@ export default function UsersScreen() {
   if (error && items.length === 0) {
     return (
       <ScreenContainer>
-        <AppHeader title="Usuarios" subtitle="Gestión de usuarios del gimnasio" />
+        <AppHeader title="Usuarios" subtitle={subtitle} />
         <EmptyState
           title="No pudimos cargar los usuarios"
           description={error}
@@ -64,52 +92,67 @@ export default function UsersScreen() {
           <View style={styles.header}>
             <AppHeader
               title="Usuarios"
-              subtitle="Listado, búsqueda y detalle de cuentas"
+              subtitle={subtitle}
               rightElement={
                 <Pressable
-                  onPress={() => router.push(ROUTES.app.adminUserCreate as never)}
+                  onPress={() =>
+                    router.push({
+                      pathname: ROUTES.app.adminUserCreate as never,
+                      params: view === 'admins' ? { role: 'admin' } : undefined,
+                    } as never)
+                  }
                   style={({ pressed }) => [
                     styles.createButton,
                     { backgroundColor: theme.colors.primary },
                     pressed && styles.pressed,
                   ]}>
                   <TextBlock variant="button" style={styles.createButtonLabel}>
-                    Crear usuario
+                    {createLabel}
                   </TextBlock>
                 </Pressable>
               }
             />
 
-            <View
-              style={[
-                styles.searchCard,
-                { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
-              ]}>
-              <TextBlock variant="caption" color="muted">
-                Buscar
-              </TextBlock>
-              <TextInput
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Nombre, email o username"
-                placeholderTextColor={theme.colors.textSubtle}
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: theme.colors.surfaceElevated,
-                    borderColor: theme.colors.border,
-                    color: theme.colors.text,
-                  },
-                ]}
-              />
+            <View style={styles.segmentedWrap}>
+              <View style={[styles.segmented, { backgroundColor: theme.colors.surface }]}>
+                {[
+                  { key: 'users' as const, label: 'Usuarios' },
+                  { key: 'admins' as const, label: 'Administradores' },
+                ].map((option) => {
+                  const selected = view === option.key;
+
+                  return (
+                    <Pressable
+                      key={option.key}
+                      onPress={() => setView(option.key)}
+                      style={({ pressed }) => [
+                        styles.segmentButton,
+                        selected && { backgroundColor: theme.colors.surfaceElevated },
+                        pressed && styles.pressed,
+                      ]}>
+                      <TextBlock variant="button" color={selected ? 'default' : 'muted'}>
+                        {option.label}
+                      </TextBlock>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
+
+            <SearchBar
+              label="Buscar"
+              placeholder="Nombre, email o username"
+              value={search}
+              onChangeText={setSearch}
+              helperText={loading && items.length > 0 ? 'Actualizando resultados...' : undefined}
+            />
           </View>
         }
         ListEmptyComponent={
           <EmptyState
-            title="Sin usuarios"
-            description="Agrega usuarios o ajusta el criterio de búsqueda."
-            icon="account-group-outline"
+            title={emptyTitle}
+            description={emptyDescription}
+            icon={view === 'admins' ? 'shield-account-outline' : 'account-group-outline'}
           />
         }
         ListFooterComponent={
@@ -151,17 +194,20 @@ const styles = StyleSheet.create({
     gap: 16,
     marginBottom: 12,
   },
-  searchCard: {
+  segmentedWrap: {
+    gap: 10,
+  },
+  segmented: {
     borderRadius: DIMENSIONS.cardRadius,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 16,
+    padding: 8,
     gap: 8,
   },
-  input: {
-    minHeight: 52,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
+  segmentButton: {
+    borderRadius: 18,
     paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardWrap: {
     marginBottom: 12,
