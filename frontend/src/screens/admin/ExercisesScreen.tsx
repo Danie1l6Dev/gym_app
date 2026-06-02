@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -24,18 +24,20 @@ import type { Exercise } from '@/interfaces/exercise';
 export default function ExercisesScreen() {
   const theme = useTheme();
   const { token } = useAuth();
+  const listRef = useRef<FlatList<Exercise> | null>(null);
   const {
     items,
     loading,
-    loadingMore,
+    loadingPage,
     refreshing,
     error,
-    hasMore,
-    loadMore,
+    page,
+    lastPage,
+    goToPage,
     refresh,
     retry,
     meta,
-  } = usePaginatedExercises({ perPage: 25 });
+  } = usePaginatedExercises({ perPage: 10, keepPreviousPages: false });
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -53,8 +55,30 @@ export default function ExercisesScreen() {
         detail: syncMessage ?? 'usa el botón para actualizar desde la API externa',
       },
     ],
-    [items.length, syncing, syncMessage]
+    [items.length, syncing, syncMessage, meta?.total]
   );
+
+  const pageOptions = useMemo(() => {
+    const candidates = new Set<number>([1, lastPage, page - 2, page - 1, page, page + 1, page + 2]);
+
+    return [...candidates]
+      .filter((value) => value >= 1 && value <= lastPage)
+      .sort((a, b) => a - b);
+  }, [lastPage, page]);
+
+  function scrollToTop() {
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }
+
+  async function handleRefresh() {
+    await refresh();
+    scrollToTop();
+  }
+
+  async function handlePageChange(nextPage: number) {
+    await goToPage(nextPage);
+    scrollToTop();
+  }
 
   async function handleSync() {
     setSyncing(true);
@@ -72,6 +96,7 @@ export default function ExercisesScreen() {
         );
       }
       await refresh();
+      scrollToTop();
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : 'No se pudo sincronizar los ejercicios.');
     } finally {
@@ -184,6 +209,111 @@ export default function ExercisesScreen() {
           </Pressable>
         ))}
       </View>
+
+      <View
+        style={[
+          styles.paginationCard,
+          { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+        ]}>
+        <View style={styles.paginationHeader}>
+          <TextBlock variant="caption" color="muted">
+            Página {page} de {lastPage}
+          </TextBlock>
+          {loadingPage ? <ActivityIndicator size="small" color={theme.colors.primary} /> : null}
+        </View>
+
+        <View style={styles.paginationControls}>
+          <Pressable
+            onPress={() => void handlePageChange(1)}
+            disabled={loadingPage || page === 1}
+            style={({ pressed }) => [
+              styles.paginationButton,
+              { borderColor: theme.colors.border },
+              pressed && !loadingPage && page !== 1 && styles.pressed,
+              (loadingPage || page === 1) && styles.disabled,
+            ]}>
+            <TextBlock variant="button" color="primary">
+              Primera
+            </TextBlock>
+          </Pressable>
+
+          <Pressable
+            onPress={() => void handlePageChange(page - 1)}
+            disabled={loadingPage || page === 1}
+            style={({ pressed }) => [
+              styles.paginationButton,
+              { borderColor: theme.colors.border },
+              pressed && !loadingPage && page !== 1 && styles.pressed,
+              (loadingPage || page === 1) && styles.disabled,
+            ]}>
+            <TextBlock variant="button" color="primary">
+              Anterior
+            </TextBlock>
+          </Pressable>
+
+          <View style={styles.pageNumberRow}>
+            {pageOptions.map((value, index) => {
+              const previous = pageOptions[index - 1];
+              const showEllipsis = typeof previous === 'number' && value - previous > 1;
+
+              return (
+                <View key={value} style={styles.pageNumberGroup}>
+                  {showEllipsis ? (
+                    <TextBlock variant="caption" color="subtle">
+                      ...
+                    </TextBlock>
+                  ) : null}
+                  <Pressable
+                    onPress={() => void handlePageChange(value)}
+                    disabled={loadingPage || value === page}
+                    style={({ pressed }) => [
+                      styles.pageNumberButton,
+                      {
+                        borderColor: value === page ? theme.colors.primary : theme.colors.border,
+                        backgroundColor:
+                          value === page ? theme.colors.backgroundSelected : theme.colors.surface,
+                      },
+                      pressed && !loadingPage && value !== page && styles.pressed,
+                      (loadingPage || value === page) && styles.disabled,
+                    ]}>
+                    <TextBlock variant="button" color={value === page ? 'primary' : 'muted'}>
+                      {value}
+                    </TextBlock>
+                  </Pressable>
+                </View>
+              );
+            })}
+          </View>
+
+          <Pressable
+            onPress={() => void handlePageChange(page + 1)}
+            disabled={loadingPage || page === lastPage}
+            style={({ pressed }) => [
+              styles.paginationButton,
+              { borderColor: theme.colors.border },
+              pressed && !loadingPage && page !== lastPage && styles.pressed,
+              (loadingPage || page === lastPage) && styles.disabled,
+            ]}>
+            <TextBlock variant="button" color="primary">
+              Siguiente
+            </TextBlock>
+          </Pressable>
+
+          <Pressable
+            onPress={() => void handlePageChange(lastPage)}
+            disabled={loadingPage || page === lastPage}
+            style={({ pressed }) => [
+              styles.paginationButton,
+              { borderColor: theme.colors.border },
+              pressed && !loadingPage && page !== lastPage && styles.pressed,
+              (loadingPage || page === lastPage) && styles.disabled,
+            ]}>
+            <TextBlock variant="button" color="primary">
+              Última
+            </TextBlock>
+          </Pressable>
+        </View>
+      </View>
     </View>
   );
 
@@ -214,21 +344,13 @@ export default function ExercisesScreen() {
   return (
     <ScreenContainer scrollable={false}>
       <FlatList
+        ref={listRef}
         style={styles.list}
         data={items}
         keyExtractor={(item) => String(item.id)}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void handleRefresh()} />}
         contentContainerStyle={styles.content}
-        onEndReachedThreshold={0.4}
-        onEndReached={hasMore ? loadMore : undefined}
         ListHeaderComponent={header}
-        ListFooterComponent={
-          loadingMore ? (
-            <View style={styles.footer}>
-              <LoadingSpinner label="Cargando más ejercicios" />
-            </View>
-          ) : null
-        }
         ListEmptyComponent={
           <EmptyState
             title="Sin ejercicios"
@@ -300,6 +422,52 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
   },
+  paginationCard: {
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 16,
+    gap: 12,
+  },
+  paginationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  paginationControls: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    alignItems: 'center',
+  },
+  paginationButton: {
+    minHeight: 40,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  pageNumberRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pageNumberGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pageNumberButton: {
+    minHeight: 40,
+    minWidth: 40,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
   quickLink: {
     minHeight: 44,
     borderRadius: 14,
@@ -320,9 +488,6 @@ const styles = StyleSheet.create({
   },
   cardWrap: {
     marginBottom: 14,
-  },
-  footer: {
-    paddingTop: 8,
   },
   pressed: {
     opacity: 0.9,

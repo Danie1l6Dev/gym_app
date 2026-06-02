@@ -3,10 +3,15 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Exercise, ExerciseFilters, ExerciseListResponse } from '@/interfaces/exercise';
 import { fetchExercises } from '@/services';
 
-export function usePaginatedExercises(filters: ExerciseFilters = {}) {
+type UsePaginatedExercisesOptions = ExerciseFilters & {
+  keepPreviousPages?: boolean;
+};
+
+export function usePaginatedExercises(filters: UsePaginatedExercisesOptions = {}) {
   const [items, setItems] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -14,14 +19,19 @@ export function usePaginatedExercises(filters: ExerciseFilters = {}) {
   const [meta, setMeta] = useState<ExerciseListResponse['meta'] | null>(null);
 
   const perPage = filters.perPage ?? 25;
+  const keepPreviousPages = filters.keepPreviousPages ?? true;
 
   const load = useCallback(
-    async (nextPage: number, replace = false) => {
+    async (nextPage: number, mode: 'initial' | 'refresh' | 'retry' | 'page' | 'append' = 'initial') => {
       try {
         setError(null);
 
-        if (replace) {
+        if (mode === 'initial' || mode === 'retry') {
           setLoading(true);
+        } else if (mode === 'refresh') {
+          setRefreshing(true);
+        } else if (mode === 'page') {
+          setLoadingPage(true);
         } else {
           setLoadingMore(true);
         }
@@ -33,7 +43,13 @@ export function usePaginatedExercises(filters: ExerciseFilters = {}) {
           perPage,
         });
 
-        setItems((current) => (replace ? response.items : [...current, ...response.items]));
+        setItems((current) => {
+          if (mode !== 'append' || !keepPreviousPages) {
+            return response.items;
+          }
+
+          return [...current, ...response.items];
+        });
         setMeta(response.meta ?? null);
         setLastPage(response.meta?.last_page ?? nextPage);
         setPage(nextPage);
@@ -42,24 +58,23 @@ export function usePaginatedExercises(filters: ExerciseFilters = {}) {
       } finally {
         setLoading(false);
         setLoadingMore(false);
+        setLoadingPage(false);
         setRefreshing(false);
       }
     },
-    [filters.muscleId, filters.search, perPage]
+    [filters.muscleId, filters.search, keepPreviousPages, perPage]
   );
 
   const refresh = useCallback(async () => {
-    if (loading) {
+    if (loading || loadingMore || loadingPage || refreshing) {
       return;
     }
 
-    setRefreshing(true);
-    await load(1, true);
-  }, [load, loading]);
+    await load(1, 'refresh');
+  }, [load, loading, loadingMore, loadingPage, refreshing]);
 
   const retry = useCallback(async () => {
-    setLoading(true);
-    await load(1, true);
+    await load(1, 'retry');
   }, [load]);
 
   const loadMore = useCallback(() => {
@@ -67,12 +82,31 @@ export function usePaginatedExercises(filters: ExerciseFilters = {}) {
       return;
     }
 
-    void load(page + 1, false);
+    void load(page + 1, 'append');
   }, [lastPage, load, loading, loadingMore, page, refreshing]);
+
+  const goToPage = useCallback(
+    async (nextPage: number) => {
+      if (
+        nextPage < 1 ||
+        nextPage > lastPage ||
+        nextPage === page ||
+        loading ||
+        loadingMore ||
+        loadingPage ||
+        refreshing
+      ) {
+        return;
+      }
+
+      await load(nextPage, 'page');
+    },
+    [lastPage, load, loading, loadingMore, loadingPage, page, refreshing]
+  );
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      void load(1, true);
+      void load(1, 'initial');
     }, 0);
 
     return () => clearTimeout(timeout);
@@ -82,6 +116,7 @@ export function usePaginatedExercises(filters: ExerciseFilters = {}) {
     items,
     loading,
     loadingMore,
+    loadingPage,
     refreshing,
     error,
     meta,
@@ -91,5 +126,6 @@ export function usePaginatedExercises(filters: ExerciseFilters = {}) {
     refresh,
     retry,
     loadMore,
+    goToPage,
   };
 }
