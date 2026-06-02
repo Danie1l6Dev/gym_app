@@ -3,6 +3,7 @@ export { useTheme } from './use-theme';
 export { useAuth } from './use-auth';
 export { useMuscles } from './use-muscles';
 export { useExercises } from './use-exercises';
+export { usePaginatedExercises } from './use-paginated-exercises';
 export { useExercise } from './use-exercise';
 export { useRoutines } from './use-routines';
 export { useRoutine } from './use-routine';

@@ -16,7 +16,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS, ROUTES } from '@/constants';
-import { useAuth, useExercises } from '@/hooks';
+import { useAuth, usePaginatedExercises } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
 import { syncAdminExercises } from '@/services';
 import type { Exercise } from '@/interfaces/exercise';
@@ -24,14 +24,29 @@ import type { Exercise } from '@/interfaces/exercise';
 export default function ExercisesScreen() {
   const theme = useTheme();
   const { token } = useAuth();
-  const { items, loading, refreshing, error, refresh, retry } = useExercises({ perPage: 100 });
+  const {
+    items,
+    loading,
+    loadingMore,
+    refreshing,
+    error,
+    hasMore,
+    loadMore,
+    refresh,
+    retry,
+    meta,
+  } = usePaginatedExercises({ perPage: 25 });
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
 
   const summary = useMemo(
     () => [
-      { label: 'Ejercicios', value: String(items.length), detail: 'en el catálogo local' },
+      {
+        label: 'Ejercicios',
+        value: String(meta?.total ?? items.length),
+        detail: 'en el catálogo local',
+      },
       {
         label: 'Sincronización',
         value: syncing ? '...' : 'lista',
@@ -204,7 +219,16 @@ export default function ExercisesScreen() {
         keyExtractor={(item) => String(item.id)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
         contentContainerStyle={styles.content}
+        onEndReachedThreshold={0.4}
+        onEndReached={hasMore ? loadMore : undefined}
         ListHeaderComponent={header}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.footer}>
+              <LoadingSpinner label="Cargando más ejercicios" />
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           <EmptyState
             title="Sin ejercicios"
@@ -296,6 +320,9 @@ const styles = StyleSheet.create({
   },
   cardWrap: {
     marginBottom: 14,
+  },
+  footer: {
+    paddingTop: 8,
   },
   pressed: {
     opacity: 0.9,

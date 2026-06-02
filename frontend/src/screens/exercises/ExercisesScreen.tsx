@@ -8,7 +8,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS, ROUTES } from '@/constants';
-import { useExercises } from '@/hooks';
+import { usePaginatedExercises } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
 import type { Exercise } from '@/interfaces/exercise';
 
@@ -20,10 +20,11 @@ type ExercisesParams = {
 export default function ExercisesScreen() {
   const theme = useTheme();
   const params = useLocalSearchParams<ExercisesParams>();
-  const { items, loading, refreshing, error, refresh, retry } = useExercises({
-    muscleId: params.muscleId,
-    perPage: 100,
-  });
+  const { items, loading, loadingMore, refreshing, error, hasMore, loadMore, refresh, retry, meta } =
+    usePaginatedExercises({
+      muscleId: params.muscleId,
+      perPage: 25,
+    });
 
   const subtitle = params.muscleName && params.muscleId
     ? `Filtrando ejercicios para ${params.muscleName}.`
@@ -44,6 +45,9 @@ export default function ExercisesScreen() {
         <TextBlock variant="header">Catálogo optimizado para explorar y abrir detalle</TextBlock>
         <TextBlock variant="body" color="muted">
           GIFs con caché, estados de red claros y navegación limpia a la vista de detalle.
+        </TextBlock>
+        <TextBlock variant="caption" color="subtle">
+          {meta?.total ? `${meta.total} ejercicios disponibles en el catálogo.` : 'Cargando total del catálogo...'}
         </TextBlock>
       </View>
     </View>
@@ -85,7 +89,16 @@ export default function ExercisesScreen() {
         initialNumToRender={6}
         maxToRenderPerBatch={8}
         windowSize={7}
+        onEndReachedThreshold={0.4}
+        onEndReached={hasMore ? loadMore : undefined}
         ListHeaderComponent={header}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.footer}>
+              <LoadingSpinner label="Cargando más ejercicios" />
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           <EmptyState
             title="No hay ejercicios disponibles"
@@ -133,5 +146,8 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     marginBottom: 14,
+  },
+  footer: {
+    paddingTop: 8,
   },
 });
