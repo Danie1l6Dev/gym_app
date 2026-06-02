@@ -9,6 +9,10 @@ use Throwable;
 
 class ExternalExerciseApiClient
 {
+    private const DEFAULT_PAGE_DELAY_US = 750000;
+    private const RATE_LIMIT_BACKOFF_SECONDS = 15;
+    private const MAX_REQUEST_ATTEMPTS = 5;
+
     /**
      * @return array<int, array<string, mixed>>
      *
@@ -88,7 +92,7 @@ class ExternalExerciseApiClient
     private function requestPayload(string $url, array $query, int $timeout): array
     {
         $lastThrowable = null;
-        $attempts = 3;
+        $attempts = self::MAX_REQUEST_ATTEMPTS;
 
         for ($attempt = 1; $attempt <= $attempts; $attempt++) {
             try {
@@ -100,7 +104,8 @@ class ExternalExerciseApiClient
                     break;
                 }
 
-                usleep((int) (pow(2, $attempt - 1) * 1000000));
+                $delaySeconds = $this->retryDelaySeconds($throwable, $attempt);
+                usleep($delaySeconds * 1000000);
             }
         }
 
@@ -112,12 +117,13 @@ class ExternalExerciseApiClient
         $queryString = http_build_query($query, '', '&', PHP_QUERY_RFC3986);
         $fullUrl = $queryString !== '' ? $url . '?' . $queryString : $url;
 
-        $headers = [
-            'Accept: application/json',
-            'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
-        ];
+        $headers = $this->requestHeaders();
 
         $command = 'curl.exe -s';
+
+        if ($timeout > 0) {
+            $command .= ' --max-time ' . escapeshellarg((string) $timeout);
+        }
 
         foreach ($headers as $header) {
             $command .= ' -H ' . escapeshellarg($header);
@@ -140,6 +146,40 @@ class ExternalExerciseApiClient
         return $payload;
     }
 
+    /**
+     * @return array<int, string>
+     */
+    private function requestHeaders(): array
+    {
+        $headers = [
+            'Accept: application/json',
+            'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
+        ];
+
+        $rapidApiKey = trim((string) config('services.exercise_db.key'));
+
+        if ($rapidApiKey !== '') {
+            $headers[] = 'X-RapidAPI-Key: ' . $rapidApiKey;
+
+            $host = parse_url((string) config('services.exercise_db.base_url'), PHP_URL_HOST);
+
+            if (is_string($host) && $host !== '') {
+                $headers[] = 'X-RapidAPI-Host: ' . $host;
+            }
+        }
+
+        return $headers;
+    }
+
+    private function retryDelaySeconds(Throwable $throwable, int $attempt): int
+    {
+        if ($this->isRateLimitError($throwable)) {
+            return self::RATE_LIMIT_BACKOFF_SECONDS * $attempt;
+        }
+
+        return (int) max(1, pow(2, $attempt - 1));
+    }
+
     private function shouldRetryTransportFailure(Throwable $throwable): bool
     {
         $message = $throwable->getMessage();
@@ -149,6 +189,13 @@ class ExternalExerciseApiClient
             || str_contains($message, 'error code: 1015')
             || str_contains($message, 'respuesta invalida')
             || str_contains($message, 'Invalid');
+    }
+
+    private function isRateLimitError(Throwable $throwable): bool
+    {
+        $message = $throwable->getMessage();
+
+        return str_contains($message, '1015') || str_contains($message, '429');
     }
 
     private function resolveUrl(string $path): string
