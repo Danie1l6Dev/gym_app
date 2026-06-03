@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Image } from 'react-native';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -62,9 +63,14 @@ export default function LoginScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={[styles.keyboardWrapper, isWide ? styles.desktopLayout : styles.mobileLayout]}>
           <View style={[styles.brandPanel, !isWide && styles.mobileBrandPanel]}>
-            <View style={styles.logoTile}>
+            {/* <View style={styles.logoTile}>
               <TextBlock style={styles.logoMark}>GP</TextBlock>
-            </View>
+            </View> */}
+            <Image
+              source={require('@/assets/images/LogGym2.png')}
+              style={{ width: 80, height: 80 }}
+              resizeMode="contain"
+            />
 
             <View style={styles.brandCopy}>
               <TextBlock style={styles.brandKicker}>GYM</TextBlock>
