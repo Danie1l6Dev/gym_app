@@ -33,11 +33,21 @@ DB_PASSWORD=
 Para ExerciseDB:
 
 ```env
-EXERCISE_DB_BASE_URL=
+EXERCISE_DB_BASE_URL=https://oss.exercisedb.dev
+EXERCISE_DB_MUSCLES_PATH=/api/v1/muscles
+EXERCISE_DB_BODYPARTS_PATH=/api/v1/bodyparts
 EXERCISE_DB_EXERCISES_PATH=/api/v1/exercises
 EXERCISE_DB_KEY=
 EXERCISE_DB_TIMEOUT=30
 EXERCISE_DB_SOURCE=exercise_db_v1
+EXERCISE_DB_VERIFY_SSL=false
+```
+
+Sincronización manual desde consola:
+
+```bash
+cd backend
+php artisan exercises:sync
 ```
 
 ## Frontend

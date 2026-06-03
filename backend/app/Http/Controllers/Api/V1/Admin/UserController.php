@@ -7,8 +7,12 @@ use App\Http\Requests\Api\V1\Admin\IndexUserRequest;
 use App\Http\Requests\Api\V1\Admin\StoreUserRequest;
 use App\Http\Requests\Api\V1\Admin\UpdateUserRequest;
 use App\Http\Resources\Api\V1\UserResource;
+use App\Models\Membership;
+use App\Models\Role;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
@@ -49,20 +53,45 @@ class UserController extends Controller
     {
         $data = $request->validated();
 
-        $user = User::create([
-            'role_id' => $data['role_id'],
-            'name' => $data['name'],
-            'username' => $data['username'] ?? null,
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
-            'phone' => $data['phone'] ?? null,
-            'birth_date' => $data['birth_date'] ?? null,
-            'gender' => $data['gender'] ?? 'other',
-            'height' => $data['height'] ?? null,
-            'weight' => $data['weight'] ?? null,
-            'profile_photo' => $data['profile_photo'] ?? null,
-            'is_active' => $data['is_active'] ?? true,
-        ]);
+        $user = DB::transaction(function () use ($data): User {
+            $roleId = $this->resolveRoleId($data);
+
+            $user = User::create([
+                'role_id' => $roleId,
+                'name' => $data['name'],
+                'username' => $data['username'] ?? null,
+                'email' => $data['email'],
+                'password' => Hash::make($data['password']),
+                'phone' => $data['phone'] ?? null,
+                'birth_date' => $data['birth_date'] ?? null,
+                'gender' => $data['gender'] ?? 'other',
+                'height' => $data['height'] ?? null,
+                'weight' => $data['weight'] ?? null,
+                'profile_photo' => $data['profile_photo'] ?? null,
+                'is_active' => $data['is_active'] ?? true,
+            ]);
+
+            $roleSlug = Role::query()->whereKey($roleId)->value('slug');
+
+            if ($roleSlug === 'user') {
+                $planType = $data['membership_plan_type'] ?? 'monthly';
+                $endsAt = Carbon::parse($data['membership_ends_at']);
+                $startsAt = Carbon::today();
+
+                Membership::create([
+                    'user_id' => $user->id,
+                    'plan_type' => $planType,
+                    'starts_at' => $startsAt->toDateString(),
+                    'ends_at' => $endsAt->toDateString(),
+                    'status' => 'active',
+                    'price' => $this->resolveMembershipPrice($planType),
+                    'paid_at' => now(),
+                    'notes' => $data['membership_notes'] ?? null,
+                ]);
+            }
+
+            return $user;
+        });
 
         return UserResource::make($user->load(['role', 'latestMembership']))
             ->additional(['message' => 'Usuario creado correctamente.'])
@@ -112,5 +141,25 @@ class UserController extends Controller
         return UserResource::make($user->load(['role', 'latestMembership']))
             ->additional(['message' => 'Usuario actualizado correctamente.'])
             ->response();
+    }
+
+    private function resolveMembershipPrice(string $planType): float
+    {
+        return match ($planType) {
+            'weekly' => 35000,
+            'monthly' => 120000,
+            default => 0,
+        };
+    }
+
+    private function resolveRoleId(array $data): int
+    {
+        if (isset($data['role_id'])) {
+            return (int) $data['role_id'];
+        }
+
+        return (int) Role::query()
+            ->where('slug', $data['role_slug'])
+            ->value('id');
     }
 }

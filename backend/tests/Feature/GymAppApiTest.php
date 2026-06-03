@@ -8,6 +8,7 @@ use App\Models\Muscle;
 use App\Models\Role;
 use App\Models\Routine;
 use App\Models\User;
+use App\Services\Exercises\ExerciseDbSyncService;
 use App\Services\Exercises\ExternalExerciseApiClient;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -113,6 +114,61 @@ class GymAppApiTest extends TestCase
             ->assertJsonPath('data.plan_label', 'Mensual');
     }
 
+    public function test_admin_can_create_regular_user_with_membership_in_same_form(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $admin = User::query()->where('email', 'admin@gymapp.com')->firstOrFail();
+
+        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/v1/admin/users', [
+            'role_slug' => 'user',
+            'name' => 'Nuevo Usuario',
+            'username' => 'nuevo.usuario',
+            'email' => 'nuevo.usuario@gymapp.com',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+            'is_active' => true,
+            'membership_plan_type' => 'monthly',
+            'membership_ends_at' => now()->addMonth()->toDateString(),
+            'membership_notes' => 'Alta creada desde el formulario de admin.',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.email', 'nuevo.usuario@gymapp.com')
+            ->assertJsonPath('data.latest_membership.plan_type', 'monthly')
+            ->assertJsonPath('data.latest_membership.plan_label', 'Mensual');
+
+        $createdUser = User::query()->where('email', 'nuevo.usuario@gymapp.com')->firstOrFail();
+        $this->assertSame(1, Membership::query()->where('user_id', $createdUser->id)->count());
+        $this->assertSame('monthly', $createdUser->latestMembership?->plan_type);
+    }
+
+    public function test_admin_can_create_admin_without_membership_fields(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $admin = User::query()->where('email', 'admin@gymapp.com')->firstOrFail();
+
+        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/v1/admin/users', [
+            'role_slug' => 'admin',
+            'name' => 'Nuevo Admin',
+            'username' => 'nuevo.admin',
+            'email' => 'nuevo.admin@gymapp.com',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+            'is_active' => true,
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.email', 'nuevo.admin@gymapp.com')
+            ->assertJsonPath('data.latest_membership', null);
+
+        $createdUser = User::query()->where('email', 'nuevo.admin@gymapp.com')->firstOrFail();
+        $this->assertSame(0, Membership::query()->where('user_id', $createdUser->id)->count());
+    }
+
     public function test_admin_user_list_excludes_admin_accounts(): void
     {
         $this->seed(DatabaseSeeder::class);
@@ -165,7 +221,10 @@ class GymAppApiTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        config(['services.exercise_db.base_url' => null]);
+        config([
+            'services.exercise_db.base_url' => null,
+            'services.exercise_api.url' => null,
+        ]);
 
         $admin = User::query()->where('email', 'admin@gymapp.com')->firstOrFail();
 
@@ -183,61 +242,81 @@ class GymAppApiTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $payload = [
-            [
-                'id' => 'incline-bench-press',
-                'name' => 'Incline Bench Press',
-                'name_es' => 'Press inclinado de banca',
-                'body_part' => 'Chest',
-                'target_muscle' => 'Pectorals',
-                'secondary_muscles' => ['Triceps', 'Anterior Deltoids'],
-                'equipment' => ['Barbell', 'Bench'],
-                'gif' => 'https://example.com/bench.gif',
-                'instructions' => [
-                    'Lie on a flat bench with your feet planted firmly on the floor.',
-                    'Lower the bar to mid-chest and press back to the starting position.',
-                ],
-            ],
-        ];
-
-        app()->instance(ExternalExerciseApiClient::class, new class($payload) extends ExternalExerciseApiClient
+        $client = new class extends ExternalExerciseApiClient
         {
-            public function __construct(private readonly array $payload)
+            public int $musclesCalls = 0;
+            public int $bodyPartsCalls = 0;
+            public array $exerciseQueries = [];
+
+            public function fetchMuscles(): array
             {
+                $this->musclesCalls++;
+
+                return [
+                    ['name' => 'pectorals'],
+                    ['name' => 'shoulders'],
+                ];
             }
 
-            public function fetchExercises(): array
+            public function fetchBodyParts(): array
             {
-                return $this->payload;
-            }
-        });
+                $this->bodyPartsCalls++;
 
-        $admin = User::query()->where('email', 'admin@gymapp.com')->firstOrFail();
+                return [
+                    ['name' => 'chest'],
+                    ['name' => 'shoulders'],
+                ];
+            }
+
+            public function fetchExercises(array $query = []): array
+            {
+                $this->exerciseQueries[] = $query;
+
+                return [
+                    'items' => [
+                        [
+                            'exerciseId' => 'incline-bench-press',
+                            'name' => 'Incline Bench Press',
+                            'bodyParts' => ['chest'],
+                            'targetMuscles' => ['pectorals'],
+                            'secondaryMuscles' => ['triceps', 'anterior deltoids'],
+                            'equipments' => ['barbell', 'bench'],
+                            'gifUrl' => 'https://example.com/bench.gif',
+                            'instructions' => [
+                                'Lie on a flat bench with your feet planted firmly on the floor.',
+                                'Lower the bar to mid-chest and press back to the starting position.',
+                            ],
+                        ],
+                    ],
+                    'meta' => ['nextCursor' => null],
+                ];
+            }
+        };
 
         config(['services.exercise_db.source' => 'exercise_db_v1']);
 
-        $firstResponse = $this->actingAs($admin, 'sanctum')->postJson('/api/v1/admin/exercises/sync');
+        $service = new ExerciseDbSyncService($client);
+        $firstResult = $service->sync();
 
-        $firstResponse
-            ->assertOk()
-            ->assertJsonPath('data.created', 1)
-            ->assertJsonPath('data.updated', 0)
-            ->assertJsonPath('data.total', 1);
+        $this->assertSame(1, $firstResult['created']);
+        $this->assertSame(0, $firstResult['updated']);
+        $this->assertSame(1, $firstResult['total']);
 
         $exercise = Exercise::query()->where('external_id', 'incline-bench-press')->firstOrFail();
         $this->assertSame('exercise_db_v1', $exercise->source);
         $this->assertSame('Incline Bench Press', $exercise->name_original);
-        $this->assertSame(['Barbell', 'Bench'], $exercise->equipment);
+        $this->assertSame(['barbell', 'bench'], $exercise->equipment);
+        $this->assertSame(['triceps', 'anterior deltoids'], $exercise->secondary_muscles);
+        $this->assertSame('chest', $exercise->body_part);
+        $this->assertSame('pectorals', $exercise->target_muscle);
 
         config(['services.exercise_db.source' => 'exercise_db_v2']);
 
-        $secondResponse = $this->actingAs($admin, 'sanctum')->postJson('/api/v1/admin/exercises/sync');
+        $secondResult = $service->sync();
 
-        $secondResponse
-            ->assertOk()
-            ->assertJsonPath('data.created', 0)
-            ->assertJsonPath('data.updated', 1)
-            ->assertJsonPath('data.total', 1);
+        $this->assertSame(0, $secondResult['created']);
+        $this->assertSame(1, $secondResult['updated']);
+        $this->assertSame(1, $secondResult['total']);
 
         $this->assertSame(1, Exercise::query()->where('external_id', 'incline-bench-press')->count());
         $exercise->refresh();

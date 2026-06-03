@@ -15,6 +15,8 @@ class ExerciseSyncController extends Controller
 
     public function store(): JsonResponse
     {
+        set_time_limit(0);
+
         $result = $this->service->sync();
 
         return response()->json([

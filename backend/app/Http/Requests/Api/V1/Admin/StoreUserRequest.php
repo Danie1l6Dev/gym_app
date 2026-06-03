@@ -16,7 +16,8 @@ class StoreUserRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'role_id' => ['required', 'integer', Rule::exists('roles', 'id')],
+            'role_id' => ['nullable', 'integer', Rule::exists('roles', 'id'), 'required_without:role_slug'],
+            'role_slug' => ['nullable', 'string', Rule::exists('roles', 'slug'), 'required_without:role_id'],
             'name' => ['required', 'string', 'max:255'],
             'username' => ['nullable', 'string', 'max:50', Rule::unique('users', 'username')],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
@@ -28,6 +29,9 @@ class StoreUserRequest extends FormRequest
             'weight' => ['nullable', 'numeric', 'min:0'],
             'profile_photo' => ['nullable', 'string', 'max:255'],
             'is_active' => ['sometimes', 'boolean'],
+            'membership_plan_type' => ['nullable', 'required_if:role_slug,user', 'required_if:role_id,2', Rule::in(['weekly', 'monthly'])],
+            'membership_ends_at' => ['nullable', 'required_if:role_slug,user', 'required_if:role_id,2', 'date', 'after_or_equal:today'],
+            'membership_notes' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }

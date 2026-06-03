@@ -34,7 +34,6 @@ class Exercise extends Model
         'name_en',
         'description_en',
         'description_es',
-        'source_payload',
     ];
 
     protected $appends = [
@@ -50,7 +49,6 @@ class Exercise extends Model
             'instructions_original' => 'array',
             'instructions_es' => 'array',
             'raw_payload' => 'array',
-            'source_payload' => 'array',
             'synced_at' => 'datetime',
         ];
     }
