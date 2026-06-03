@@ -67,7 +67,7 @@ export default function LoginScreen() {
               <TextBlock style={styles.logoMark}>GP</TextBlock>
             </View> */}
             <Image
-              source={require('@/assets/images/LogGym2.png')}
+              source={require('@/assets/images/LogGym3.png')}
               style={{ width: 80, height: 80 }}
               resizeMode="contain"
             />

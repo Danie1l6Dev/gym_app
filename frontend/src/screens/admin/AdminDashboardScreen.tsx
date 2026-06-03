@@ -8,11 +8,12 @@ import { MembershipCard } from '@/components/MembershipCard';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DEFAULT_EXPIRING_WINDOW_DAYS, DIMENSIONS, ROUTES } from '@/constants';
-import { useAdminDashboard } from '@/hooks';
+import { useAdminDashboard, useAuth } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function AdminDashboardScreen() {
   const theme = useTheme();
+  const { logout } = useAuth();
   const { data, loading, refreshing, error, refresh, retry } = useAdminDashboard();
 
   if (loading && !data) {
@@ -154,6 +155,18 @@ export default function AdminDashboardScreen() {
             ))
           )}
         </View>
+
+        <Pressable
+          onPress={() => void logout()}
+          style={({ pressed }) => [
+            styles.logoutButton,
+            { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border },
+            pressed && styles.pressed,
+          ]}>
+          <TextBlock variant="button" color="primary">
+            Cerrar sesión
+          </TextBlock>
+        </Pressable>
       </ScrollView>
     </ScreenContainer>
   );
@@ -208,5 +221,13 @@ const styles = StyleSheet.create({
   },
   adminNote: {
     marginTop: 4,
+  },
+  logoutButton: {
+    marginTop: 16,
+    minHeight: 52,
+    borderRadius: DIMENSIONS.cardRadius,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
