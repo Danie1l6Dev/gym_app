@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { DIMENSIONS } from '@/constants';
 import { TAB_ITEMS } from '@/navigation/routes';
@@ -12,11 +12,12 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textSubtle,
+        tabBarActiveTintColor: theme.colors.secondary,
+        tabBarInactiveTintColor: theme.colors.textMuted,
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.border,
+          borderTopWidth: 1,
           height: DIMENSIONS.tabBarHeight,
           paddingTop: 10,
           paddingBottom: 14,
@@ -35,7 +36,7 @@ export default function TabsLayout() {
         options={{
           title: TAB_ITEMS[0].label,
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="home-variant-outline" size={size ?? 22} color={color} />
+            <MaterialCommunityIcons name="view-dashboard-outline" size={size ?? 22} color={color} />
           ),
         }}
       />
@@ -44,11 +45,7 @@ export default function TabsLayout() {
         options={{
           title: TAB_ITEMS[1].label,
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons
-              name="calendar-check-outline"
-              size={size ?? 22}
-              color={color}
-            />
+            <MaterialCommunityIcons name="repeat-variant" size={size ?? 22} color={color} />
           ),
         }}
       />
@@ -66,7 +63,7 @@ export default function TabsLayout() {
         options={{
           title: TAB_ITEMS[3].label,
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account-circle-outline" size={size ?? 22} color={color} />
+            <MaterialCommunityIcons name="account-outline" size={size ?? 22} color={color} />
           ),
         }}
       />

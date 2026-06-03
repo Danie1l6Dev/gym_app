@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { DIMENSIONS } from '@/constants';
 import { ADMIN_TAB_ITEMS } from '@/navigation/routes';
