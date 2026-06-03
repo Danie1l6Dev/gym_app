@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Auth\LoginRequest;
+use App\Http\Requests\Api\V1\Auth\UpdateProfileRequest;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -27,7 +28,7 @@ class AuthController extends Controller
 
         /** @var User $user */
         $user = Auth::user();
-        $user->load('role', 'latestMembership');
+        $user->load('role', 'latestMembership', 'routines');
         $token = $user->createToken('mobile')->plainTextToken;
 
         return response()->json([
@@ -44,8 +45,21 @@ class AuthController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        return UserResource::make($user->load('role', 'latestMembership'))
+        return UserResource::make($user->load('role', 'latestMembership', 'routines'))
             ->additional(['message' => 'Perfil obtenido correctamente.'])
+            ->response();
+    }
+
+    public function updateMe(UpdateProfileRequest $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $user->fill($request->validated());
+        $user->save();
+
+        return UserResource::make($user->load('role', 'latestMembership', 'routines'))
+            ->additional(['message' => 'Perfil actualizado correctamente.'])
             ->response();
     }
 

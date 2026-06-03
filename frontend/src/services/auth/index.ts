@@ -1,4 +1,9 @@
-export { loginRequest, logoutRequest } from './auth.service';
+export {
+  getCurrentUserRequest,
+  loginRequest,
+  logoutRequest,
+  updateCurrentUserRequest,
+} from './auth.service';
 export {
   clearAuthSession,
   getStoredAuthSession,

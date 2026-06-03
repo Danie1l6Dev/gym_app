@@ -1,5 +1,5 @@
 import { apiClient, type ApiError } from '@/services/api/client';
-import type { LoginRequest, LoginResponse, User } from '@/interfaces/auth';
+import type { LoginRequest, LoginResponse, UpdateProfilePayload, User } from '@/interfaces/auth';
 
 type RawLoginResponse = {
   token?: string;
@@ -16,6 +16,12 @@ type RawLoginResponse = {
     tokenType?: string;
     user?: User;
   };
+  message?: string;
+};
+
+type RawUserResponse = {
+  data?: User;
+  user?: User;
   message?: string;
 };
 
@@ -51,6 +57,28 @@ export async function loginRequest(payload: LoginRequest): Promise<LoginResponse
     user,
     message: data.message,
   };
+}
+
+export async function getCurrentUserRequest(): Promise<User> {
+  const response = await apiClient.get<RawUserResponse>('/api/v1/auth/me');
+  const user = response.data.user ?? response.data.data;
+
+  if (!user) {
+    throw new Error('Profile response is missing user data.');
+  }
+
+  return user;
+}
+
+export async function updateCurrentUserRequest(payload: UpdateProfilePayload): Promise<User> {
+  const response = await apiClient.put<RawUserResponse>('/api/v1/auth/me', payload);
+  const user = response.data.user ?? response.data.data;
+
+  if (!user) {
+    throw new Error('Profile update response is missing user data.');
+  }
+
+  return user;
 }
 
 export async function logoutRequest() {

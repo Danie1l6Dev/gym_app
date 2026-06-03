@@ -1,4 +1,4 @@
-export type { AuthState, LoginRequest, LoginResponse, User } from './auth';
+export type { AuthState, LoginRequest, LoginResponse, UpdateProfilePayload, User } from './auth';
 export type {
   AdminDashboardData,
   AdminDashboardStats,

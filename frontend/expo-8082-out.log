@@ -1,0 +1,10 @@
+Starting project at C:\xampp\htdocs\GymApp\gym_app\frontend
+Using src/app as the root directory for Expo Router.
+React Compiler enabled
+Starting Metro Bundler
+
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+Waiting on http://localhost:8082
+An update for expo is available: 56.0.6 → ~56.0.8
+3 other packages may need updating. Run npx expo install --check for details.
+Logs for your project will appear below.

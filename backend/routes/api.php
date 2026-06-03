@@ -15,6 +15,7 @@ Route::prefix('v1')->group(function (): void {
 
         Route::middleware('auth:sanctum')->group(function (): void {
             Route::get('me', [AuthController::class, 'me']);
+            Route::put('me', [AuthController::class, 'updateMe']);
             Route::post('logout', [AuthController::class, 'logout']);
         });
     });

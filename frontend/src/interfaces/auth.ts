@@ -1,4 +1,5 @@
 import type { Membership } from './membership';
+import type { Routine } from './routine';
 
 export interface User {
   id: string | number;
@@ -10,8 +11,10 @@ export interface User {
   gender?: string | null;
   height?: string | number | null;
   weight?: string | number | null;
+  profile_photo?: string | null;
   is_active?: boolean;
   latest_membership?: Membership | null;
+  routines?: Routine[];
   role?: {
     id?: string | number;
     name?: string;
@@ -24,6 +27,18 @@ export interface User {
 export interface LoginRequest {
   email: string;
   password: string;
+}
+
+export interface UpdateProfilePayload {
+  name?: string;
+  username?: string | null;
+  email?: string;
+  phone?: string | null;
+  birth_date?: string | null;
+  gender?: 'male' | 'female' | 'other';
+  height?: string | number | null;
+  weight?: string | number | null;
+  profile_photo?: string | null;
 }
 
 export interface LoginResponse {

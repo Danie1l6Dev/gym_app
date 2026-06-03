@@ -36,7 +36,7 @@ export function AppHeader({ title, subtitle, showBack = false, rightElement }: A
 
         <View style={styles.textGroup}>
           <TextBlock variant="eyebrow" color="muted">
-            {capitalize('gym flow')}
+            {capitalize('GYM PONTE PIÑUO')}
           </TextBlock>
           <TextBlock variant="header">{title}</TextBlock>
           {subtitle ? (

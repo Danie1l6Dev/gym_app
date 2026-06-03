@@ -1,7 +1,14 @@
 import { createContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import type { AuthState, LoginRequest } from '@/interfaces/auth';
-import { loginRequest, logoutRequest, getStoredAuthSession, saveAuthSession, clearAuthSession } from '@/services/auth';
+import {
+  clearAuthSession,
+  getCurrentUserRequest,
+  getStoredAuthSession,
+  loginRequest,
+  logoutRequest,
+  saveAuthSession,
+} from '@/services/auth';
 
 type AuthContextValue = AuthState & {
   login: (credentials: LoginRequest) => Promise<void>;
@@ -32,12 +39,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
   async function refreshSession() {
     try {
       const session = await getStoredAuthSession();
+      let user = session.user;
+
+      if (session.token) {
+        user = await getCurrentUserRequest();
+
+        await saveAuthSession({
+          token: session.token,
+          user,
+        });
+      }
 
       setState({
-        user: session.user,
+        user,
         token: session.token,
         loading: false,
-        isAuthenticated: Boolean(session.token && session.user),
+        isAuthenticated: Boolean(session.token && user),
       });
     } catch {
       setState({
