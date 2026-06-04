@@ -1,3 +1,6 @@
+import { Platform } from 'react-native';
+
+import { API_BASE_URL } from '@/constants';
 import { apiClient, type ApiError } from '@/services/api/client';
 import type { LoginRequest, LoginResponse, UpdateProfilePayload, User } from '@/interfaces/auth';
 
@@ -38,7 +41,17 @@ function resolveToken(payload: RawLoginResponse) {
 }
 
 function resolveUser(payload: RawLoginResponse) {
-  return payload.user ?? payload.data?.user ?? null;
+  const user = payload.user ?? payload.data?.user ?? null;
+  return user ? normalizeUserUrls(user) : null;
+}
+
+function normalizeUserUrls(user: User): User {
+  // Si avatarUrl es una ruta relativa, completarla con la URL base
+  if (user.avatarUrl && !user.avatarUrl.startsWith('http')) {
+    user.avatarUrl = API_BASE_URL + user.avatarUrl;
+  }
+  
+  return user;
 }
 
 export async function loginRequest(payload: LoginRequest): Promise<LoginResponse> {
@@ -67,18 +80,50 @@ export async function getCurrentUserRequest(): Promise<User> {
     throw new Error('Profile response is missing user data.');
   }
 
-  return user;
+  return normalizeUserUrls(user);
 }
 
 export async function updateCurrentUserRequest(payload: UpdateProfilePayload): Promise<User> {
-  const response = await apiClient.put<RawUserResponse>('/api/v1/auth/me', payload);
+  const response = payload.profile_photo_file
+    ? await apiClient.post<RawUserResponse>('/api/v1/auth/me', await createProfileFormData(payload))
+    : await apiClient.put<RawUserResponse>('/api/v1/auth/me', payload);
   const user = response.data.user ?? response.data.data;
 
   if (!user) {
     throw new Error('Profile update response is missing user data.');
   }
 
-  return user;
+  return normalizeUserUrls(user);
+}
+
+async function createProfileFormData(payload: UpdateProfilePayload) {
+  const formData = new FormData();
+  const photoFile = payload.profile_photo_file;
+
+  formData.append('_method', 'PUT');
+
+  Object.entries(payload).forEach(([key, value]) => {
+    if (key === 'profile_photo_file' || value === undefined || value === null) {
+      return;
+    }
+
+    formData.append(key, String(value));
+  });
+
+  if (photoFile) {
+    // Convertir el archivo a Blob con el tipo MIME correcto
+    try {
+      const response = await fetch(photoFile.uri);
+      const arrayBuffer = await response.arrayBuffer();
+      const photoBlob = new Blob([arrayBuffer], { type: photoFile.type });
+      formData.append('profile_photo', photoBlob, photoFile.name);
+    } catch (error) {
+      console.error('Error converting photo to blob:', error);
+      throw new Error('No se pudo procesar la imagen. Intenta nuevamente.');
+    }
+  }
+
+  return formData;
 }
 
 export async function logoutRequest() {

@@ -37,6 +37,11 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
     }
   }
 
+  // Si el data es FormData, dejar que Axios maneje el Content-Type automáticamente
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
+
   return config;
 });
 

@@ -39,6 +39,11 @@ export interface UpdateProfilePayload {
   height?: string | number | null;
   weight?: string | number | null;
   profile_photo?: string | null;
+  profile_photo_file?: {
+    uri: string;
+    name: string;
+    type: string;
+  };
 }
 
 export interface LoginResponse {

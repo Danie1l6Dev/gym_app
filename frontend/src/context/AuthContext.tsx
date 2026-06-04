@@ -1,6 +1,7 @@
-import { createContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import type { AuthState, LoginRequest } from '@/interfaces/auth';
+import { API_BASE_URL } from '@/constants';
+import type { AuthState, LoginRequest, UpdateProfilePayload, User } from '@/interfaces/auth';
 import {
   clearAuthSession,
   getCurrentUserRequest,
@@ -8,12 +9,14 @@ import {
   loginRequest,
   logoutRequest,
   saveAuthSession,
+  updateCurrentUserRequest,
 } from '@/services/auth';
 
 type AuthContextValue = AuthState & {
   login: (credentials: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  updateProfile: (payload: UpdateProfilePayload) => Promise<User>;
 };
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -29,6 +32,21 @@ const initialState: AuthState = {
   isAuthenticated: false,
 };
 
+function normalizeUserAvatarUrl(user: User | null): User | null {
+  if (!user || !user.avatarUrl) return user;
+  
+  // Si ya es una URL absoluta, dejarla tal cual
+  if (user.avatarUrl.startsWith('http://') || user.avatarUrl.startsWith('https://')) {
+    return user;
+  }
+  
+  // Si es una ruta relativa, completarla con la URL base
+  return {
+    ...user,
+    avatarUrl: API_BASE_URL + user.avatarUrl,
+  };
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const [state, setState] = useState<AuthState>(initialState);
 
@@ -39,7 +57,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   async function refreshSession() {
     try {
       const session = await getStoredAuthSession();
-      let user = session.user;
+      let user = normalizeUserAvatarUrl(session.user);
 
       if (session.token) {
         user = await getCurrentUserRequest();
@@ -97,14 +115,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
+  const updateProfile = useCallback(async (payload: UpdateProfilePayload) => {
+    const updatedUser = await updateCurrentUserRequest(payload);
+
+    await saveAuthSession({
+      token: state.token,
+      user: updatedUser,
+    });
+
+    setState((currentState) => ({
+      ...currentState,
+      user: updatedUser,
+      isAuthenticated: Boolean(currentState.token && updatedUser),
+    }));
+
+    return updatedUser;
+  }, [state.token]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       ...state,
       login,
       logout,
       refreshSession,
+      updateProfile,
     }),
-    [state]
+    [state, updateProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

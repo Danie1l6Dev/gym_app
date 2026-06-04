@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class AuthController extends Controller
 {
@@ -55,7 +56,17 @@ class AuthController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $user->fill($request->validated());
+        $data = $request->safe()->except('profile_photo');
+
+        if ($request->hasFile('profile_photo')) {
+            if ($user->profile_photo && str_starts_with($user->profile_photo, 'profile-photos/')) {
+                Storage::disk('public')->delete($user->profile_photo);
+            }
+
+            $data['profile_photo'] = $request->file('profile_photo')->store('profile-photos', 'public');
+        }
+
+        $user->fill($data);
         $user->save();
 
         return UserResource::make($user->load('role', 'latestMembership', 'routines'))

@@ -1,6 +1,16 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import type { ComponentProps, ReactNode } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { useState, type ComponentProps, type ReactNode } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
 import { EmptyState } from '@/components/EmptyState';
@@ -9,6 +19,8 @@ import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS } from '@/constants';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
+import type { UpdateProfilePayload, User } from '@/interfaces/auth';
+import type { ApiError } from '@/services/api/client';
 import { formatShortDate } from '@/utils/dates';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -20,9 +32,34 @@ type ProfileItem = {
   detail?: string;
 };
 
+type ProfileFormState = {
+  name: string;
+  username: string;
+  email: string;
+  phone: string;
+  birth_date: string;
+  gender: '' | 'male' | 'female' | 'other';
+  height: string;
+  weight: string;
+  photoPreviewUri: string;
+  profile_photo_file?: UpdateProfilePayload['profile_photo_file'];
+};
+
+const GENDER_OPTIONS: { label: string; value: ProfileFormState['gender'] }[] = [
+  { label: 'Sin definir', value: '' },
+  { label: 'Masculino', value: 'male' },
+  { label: 'Femenino', value: 'female' },
+  { label: 'Otro', value: 'other' },
+];
+
 export default function ProfileScreen() {
   const theme = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
+  const [form, setForm] = useState<ProfileFormState>(() => createProfileForm(user));
+  const [focusedField, setFocusedField] = useState<keyof ProfileFormState | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formMessage, setFormMessage] = useState<string | null>(null);
   const membership = user?.latest_membership;
   const routines = user?.routines ?? [];
   const avatarUri = user?.avatarUrl ?? user?.profile_photo ?? null;
@@ -76,6 +113,91 @@ export default function ProfileScreen() {
       icon: 'receipt-text-check-outline',
     },
   ];
+
+  function openEditForm() {
+    setForm(createProfileForm(user));
+    setFormMessage(null);
+    setIsEditing(true);
+  }
+
+  function closeEditForm() {
+    setForm(createProfileForm(user));
+    setFormMessage(null);
+    setFocusedField(null);
+    setIsEditing(false);
+  }
+
+  function updateField(field: keyof ProfileFormState, value: string) {
+    setForm((currentForm) => ({ ...currentForm, [field]: value }));
+  }
+
+  async function handleSaveProfile() {
+    if (!form.name.trim() || !form.email.trim()) {
+      setFormMessage('Nombre y correo son obligatorios.');
+      return;
+    }
+
+    setSaving(true);
+    setFormMessage(null);
+
+    const payload: UpdateProfilePayload = {
+      name: form.name.trim(),
+      username: nullableText(form.username),
+      email: form.email.trim().toLowerCase(),
+      phone: nullableText(form.phone),
+      birth_date: nullableText(form.birth_date),
+      gender: form.gender || undefined,
+      height: nullableText(form.height),
+      weight: nullableText(form.weight),
+      profile_photo_file: form.profile_photo_file,
+    };
+
+    try {
+      await updateProfile(payload);
+      setIsEditing(false);
+      setFocusedField(null);
+    } catch (error) {
+      setFormMessage(getProfileErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function pickProfilePhoto() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      setFormMessage('Permite el acceso a tus archivos para seleccionar una foto.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      mediaTypes: ['images'],
+      quality: 0.85,
+    });
+
+    if (result.canceled || !result.assets[0]) {
+      return;
+    }
+
+    const asset = result.assets[0];
+    const extension = getFileExtension(asset.uri);
+    const fallbackName = `profile-photo.${extension}`;
+    const mimeType = asset.mimeType || getMimeTypeForExtension(extension);
+
+    setForm((currentForm) => ({
+      ...currentForm,
+      photoPreviewUri: asset.uri,
+      profile_photo_file: {
+        uri: asset.uri,
+        name: asset.fileName ?? fallbackName,
+        type: mimeType,
+      },
+    }));
+    setFormMessage(null);
+  }
 
   return (
     <ScreenContainer>
@@ -142,7 +264,242 @@ export default function ProfileScreen() {
               <MiniStat label="Peso" value={formatMeasurement(user.weight, 'kg')} />
               <MiniStat label="IMC" value={bmi ?? 'No disponible'} />
             </View>
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={isEditing ? closeEditForm : openEditForm}
+              style={({ pressed }) => [
+                styles.editButton,
+                { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+                pressed && styles.pressed,
+              ]}>
+              <MaterialCommunityIcons
+                name={isEditing ? 'close' : 'account-edit-outline'}
+                size={20}
+                color="#FFFFFF"
+              />
+              <TextBlock variant="button" style={styles.editButtonText}>
+                {isEditing ? 'Cancelar edición' : 'Editar datos'}
+              </TextBlock>
+            </Pressable>
           </View>
+
+          {isEditing ? (
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+              <View
+                style={[
+                  styles.formCard,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.border,
+                    shadowColor: theme.colors.shadow,
+                  },
+                ]}>
+                <View style={styles.formHeader}>
+                  <View>
+                    <TextBlock variant="title">Editar datos básicos</TextBlock>
+                    <TextBlock variant="caption" color="muted">
+                      Actualiza la información que aparece en tu perfil.
+                    </TextBlock>
+                  </View>
+                </View>
+
+                {formMessage ? (
+                  <View style={[styles.messageBox, { borderColor: theme.colors.danger }]}>
+                    <MaterialCommunityIcons
+                      name="alert-circle-outline"
+                      size={18}
+                      color={theme.colors.danger}
+                    />
+                    <TextBlock variant="caption" style={{ color: theme.colors.danger }}>
+                      {formMessage}
+                    </TextBlock>
+                  </View>
+                ) : null}
+
+                <View style={styles.formGrid}>
+                  <ProfileInput
+                    label="Nombre"
+                    value={form.name}
+                    onChangeText={(value) => updateField('name', value)}
+                    focused={focusedField === 'name'}
+                    onFocus={() => setFocusedField('name')}
+                    onBlur={() => setFocusedField(null)}
+                    required
+                  />
+                  <ProfileInput
+                    label="Usuario"
+                    value={form.username}
+                    onChangeText={(value) => updateField('username', value)}
+                    focused={focusedField === 'username'}
+                    onFocus={() => setFocusedField('username')}
+                    onBlur={() => setFocusedField(null)}
+                    autoCapitalize="none"
+                  />
+                  <ProfileInput
+                    label="Correo"
+                    value={form.email}
+                    onChangeText={(value) => updateField('email', value)}
+                    focused={focusedField === 'email'}
+                    onFocus={() => setFocusedField('email')}
+                    onBlur={() => setFocusedField(null)}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    required
+                  />
+                  <ProfileInput
+                    label="Teléfono"
+                    value={form.phone}
+                    onChangeText={(value) => updateField('phone', value)}
+                    focused={focusedField === 'phone'}
+                    onFocus={() => setFocusedField('phone')}
+                    onBlur={() => setFocusedField(null)}
+                    keyboardType="phone-pad"
+                  />
+                  <ProfileInput
+                    label="Fecha de nacimiento"
+                    value={form.birth_date}
+                    onChangeText={(value) => updateField('birth_date', value)}
+                    focused={focusedField === 'birth_date'}
+                    onFocus={() => setFocusedField('birth_date')}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder="AAAA-MM-DD"
+                  />
+                  <ProfileInput
+                    label="Altura"
+                    value={form.height}
+                    onChangeText={(value) => updateField('height', value)}
+                    focused={focusedField === 'height'}
+                    onFocus={() => setFocusedField('height')}
+                    onBlur={() => setFocusedField(null)}
+                    keyboardType="numeric"
+                    placeholder="Ej: 1.75"
+                  />
+                  <ProfileInput
+                    label="Peso"
+                    value={form.weight}
+                    onChangeText={(value) => updateField('weight', value)}
+                    focused={focusedField === 'weight'}
+                    onFocus={() => setFocusedField('weight')}
+                    onBlur={() => setFocusedField(null)}
+                    keyboardType="numeric"
+                    placeholder="Ej: 72"
+                  />
+                </View>
+
+                <View style={styles.photoPickerGroup}>
+                  <TextBlock variant="caption" color="muted">
+                    Foto de perfil
+                  </TextBlock>
+                  <View style={styles.photoPickerRow}>
+                    <View
+                      style={[
+                        styles.photoPreview,
+                        {
+                          backgroundColor: theme.colors.surfaceElevated,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}>
+                      {form.photoPreviewUri ? (
+                        <Image source={{ uri: form.photoPreviewUri }} style={styles.photoPreviewImage} />
+                      ) : (
+                        <MaterialCommunityIcons
+                          name="account-circle-outline"
+                          size={34}
+                          color={theme.colors.textMuted}
+                        />
+                      )}
+                    </View>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={pickProfilePhoto}
+                      style={({ pressed }) => [
+                        styles.photoButton,
+                        { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border },
+                        pressed && styles.pressed,
+                      ]}>
+                      <MaterialCommunityIcons name="image-plus" size={18} color={theme.colors.primary} />
+                      <TextBlock variant="button" color="primary">
+                        Seleccionar foto
+                      </TextBlock>
+                    </Pressable>
+                  </View>
+                </View>
+
+                <View style={styles.genderGroup}>
+                  <TextBlock variant="caption" color="muted">
+                    Género
+                  </TextBlock>
+                  <View style={styles.genderOptions}>
+                    {GENDER_OPTIONS.map((option) => {
+                      const selected = form.gender === option.value;
+
+                      return (
+                        <Pressable
+                          key={option.label}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected }}
+                          onPress={() => updateField('gender', option.value)}
+                          style={({ pressed }) => [
+                            styles.genderButton,
+                            {
+                              backgroundColor: selected
+                                ? theme.colors.primary
+                                : theme.colors.surfaceElevated,
+                              borderColor: selected ? theme.colors.primary : theme.colors.border,
+                            },
+                            pressed && styles.pressed,
+                          ]}>
+                          <TextBlock
+                            variant="caption"
+                            style={selected ? styles.genderButtonTextActive : undefined}
+                            color={selected ? undefined : 'muted'}>
+                            {option.label}
+                          </TextBlock>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                <View style={styles.formActions}>
+                  <Pressable
+                    disabled={saving}
+                    onPress={closeEditForm}
+                    style={({ pressed }) => [
+                      styles.secondaryButton,
+                      { borderColor: theme.colors.border },
+                      pressed && styles.pressed,
+                      saving && styles.disabled,
+                    ]}>
+                    <TextBlock variant="button" color="muted">
+                      Cancelar
+                    </TextBlock>
+                  </Pressable>
+                  <Pressable
+                    disabled={saving}
+                    onPress={handleSaveProfile}
+                    style={({ pressed }) => [
+                      styles.saveButton,
+                      { backgroundColor: theme.colors.primary },
+                      pressed && styles.pressed,
+                      saving && styles.disabled,
+                    ]}>
+                    {saving ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <MaterialCommunityIcons name="content-save-outline" size={18} color="#FFFFFF" />
+                        <TextBlock variant="button" style={styles.editButtonText}>
+                          Guardar cambios
+                        </TextBlock>
+                      </>
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+            </KeyboardAvoidingView>
+          ) : null}
 
           <ProfileSection title="Cuenta" icon="account-circle-outline">
             {accountItems.map((item) => (
@@ -312,6 +669,92 @@ function InfoCard({ label, value, detail, icon, fullWidth = false }: InfoCardPro
   );
 }
 
+type ProfileInputProps = ComponentProps<typeof TextInput> & {
+  label: string;
+  focused: boolean;
+  required?: boolean;
+};
+
+function ProfileInput({ label, focused, required = false, style, ...inputProps }: ProfileInputProps) {
+  const theme = useTheme();
+
+  return (
+    <View style={styles.inputGroup}>
+      <TextBlock variant="caption" color="muted">
+        {label}
+        {required ? ' *' : ''}
+      </TextBlock>
+      <TextInput
+        placeholderTextColor={theme.colors.textMuted}
+        style={[
+          styles.input,
+          {
+            backgroundColor: theme.colors.surfaceElevated,
+            borderColor: focused ? theme.colors.primary : theme.colors.border,
+            color: theme.colors.text,
+          },
+          style,
+        ]}
+        {...inputProps}
+      />
+    </View>
+  );
+}
+
+function createProfileForm(user?: User | null): ProfileFormState {
+  return {
+    name: user?.name ?? '',
+    username: user?.username ?? '',
+    email: user?.email ?? '',
+    phone: user?.phone ?? '',
+    birth_date: user?.birth_date ?? '',
+    gender: isProfileGender(user?.gender) ? user.gender : '',
+    height: user?.height === null || user?.height === undefined ? '' : String(user.height),
+    weight: user?.weight === null || user?.weight === undefined ? '' : String(user.weight),
+    photoPreviewUri: user?.avatarUrl ?? user?.profile_photo ?? '',
+  };
+}
+
+function isProfileGender(value?: string | null): value is ProfileFormState['gender'] {
+  return value === 'male' || value === 'female' || value === 'other' || value === '';
+}
+
+function nullableText(value: string) {
+  const trimmedValue = value.trim();
+  return trimmedValue ? trimmedValue : null;
+}
+
+function getFileExtension(uri: string) {
+  const extension = uri.split('.').pop()?.split('?')[0]?.toLowerCase();
+
+  return extension && extension.length <= 5 ? extension : 'jpg';
+}
+
+function getMimeTypeForExtension(extension: string): string {
+  const mimeTypes: Record<string, string> = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+    gif: 'image/gif',
+  };
+
+  return mimeTypes[extension.toLowerCase()] || 'image/jpeg';
+}
+
+function getProfileErrorMessage(error: unknown) {
+  const apiError = error as ApiError;
+  const validationMessages = apiError.data?.errors
+    ? Object.values(apiError.data.errors).flat().filter(Boolean)
+    : [];
+
+  if (validationMessages.length > 0) {
+    return validationMessages[0];
+  }
+
+  return error instanceof Error ? error.message : 'No se pudo actualizar el perfil.';
+}
+
 function getInitials(name?: string | null) {
   if (!name) return 'U';
 
@@ -467,6 +910,144 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     justifyContent: 'center',
     gap: 3,
+  },
+  editButton: {
+    minHeight: 48,
+    borderRadius: DIMENSIONS.cardRadius,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  editButtonText: {
+    color: '#FFFFFF',
+  },
+  formCard: {
+    marginTop: 16,
+    borderRadius: DIMENSIONS.cardRadius,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 18,
+    gap: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 2,
+  },
+  formHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  messageBox: {
+    minHeight: 44,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  formGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  inputGroup: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    gap: 8,
+    minWidth: 220,
+  },
+  input: {
+    minHeight: 50,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  photoPickerGroup: {
+    gap: 8,
+  },
+  photoPickerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 12,
+  },
+  photoPreview: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  photoPreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  photoButton: {
+    minHeight: 46,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  genderGroup: {
+    gap: 8,
+  },
+  genderOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  genderButton: {
+    minHeight: 40,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  genderButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  formActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  secondaryButton: {
+    minHeight: 48,
+    minWidth: 128,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveButton: {
+    minHeight: 48,
+    minWidth: 170,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  disabled: {
+    opacity: 0.7,
   },
   section: {
     marginTop: 22,

@@ -34,6 +34,12 @@
             "imageWidth": 76
           }
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permite seleccionar una foto para actualizar tu perfil."
+        }
       ]
     ],
     "experiments": {

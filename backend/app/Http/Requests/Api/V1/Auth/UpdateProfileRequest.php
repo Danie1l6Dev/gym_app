@@ -26,7 +26,16 @@ class UpdateProfileRequest extends FormRequest
             'gender' => ['sometimes', Rule::in(Gender::values())],
             'height' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'weight' => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'profile_photo' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'profile_photo' => ['sometimes', 'nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'profile_photo.file' => 'Selecciona una imagen válida para la foto de perfil.',
+            'profile_photo.mimes' => 'La foto debe estar en formato JPG, PNG o WEBP.',
+            'profile_photo.max' => 'La foto no puede pesar más de 2 MB.',
         ];
     }
 }
