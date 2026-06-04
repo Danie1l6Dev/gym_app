@@ -101,7 +101,17 @@ class UserController extends Controller
 
     public function show(User $user): JsonResponse
     {
-        return UserResource::make($user->load(['role', 'latestMembership', 'memberships', 'routines.exercises.muscle']))
+        $viewer = request()->user();
+
+        $relations = ['role', 'latestMembership', 'memberships'];
+
+        if ($viewer?->id === $user->id) {
+            $relations[] = 'routines.exercises.muscle';
+        } else {
+            $relations['routines'] = fn ($query) => $query->where('is_predefined', true)->with('exercises.muscle');
+        }
+
+        return UserResource::make($user->load($relations))
             ->additional(['message' => 'Usuario obtenido correctamente.'])
             ->response();
     }

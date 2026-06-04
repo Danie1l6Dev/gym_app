@@ -44,6 +44,7 @@ export default function RoutinesScreen() {
       ),
     [items, user?.id]
   );
+  const isAdmin = user?.role?.slug === 'admin';
 
   const data = activeTab === 'recommended' ? recommended : mine;
 
@@ -96,7 +97,7 @@ export default function RoutinesScreen() {
             <AppHeader
               title="Rutinas"
               subtitle="Explora recomendaciones y tus rutinas personales."
-              rightElement={
+              rightElement={isAdmin ? (
                 <Pressable
                   onPress={() => router.push(ROUTES.app.routineCreate)}
                   style={({ pressed }) => [
@@ -108,7 +109,7 @@ export default function RoutinesScreen() {
                     Crear rutina
                   </TextBlock>
                 </Pressable>
-              }
+              ) : undefined}
             />
 
             <View
@@ -161,8 +162,14 @@ export default function RoutinesScreen() {
                 : 'Crea tu primera rutina personalizada para verla en este espacio.'
             }
             icon={activeTab === 'recommended' ? 'clipboard-text-outline' : 'account-heart-outline'}
-            actionLabel="Crear rutina"
-            onAction={() => router.push(ROUTES.app.routineCreate)}
+            actionLabel={
+              activeTab === 'recommended' && !isAdmin ? undefined : 'Crear rutina'
+            }
+            onAction={
+              activeTab === 'recommended' && !isAdmin
+                ? undefined
+                : () => router.push(ROUTES.app.routineCreate)
+            }
           />
         }
         renderItem={({ item }: { item: Routine }) => (

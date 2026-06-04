@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  Switch,
   View,
 } from 'react-native';
 import { router } from 'expo-router';
@@ -16,7 +17,7 @@ import { SearchBar } from '@/components/SearchBar';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS, ROUTES } from '@/constants';
-import { useCreateRoutine, useExercises } from '@/hooks';
+import { useAuth, useCreateRoutine, useExercises } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
 import type { Exercise } from '@/interfaces/exercise';
 import type { RoutineInputExercise } from '@/interfaces/routine';
@@ -43,13 +44,16 @@ function buildRoutineExercises(selected: SelectedExercise[]): RoutineInputExerci
 
 export default function CreateRoutineScreen() {
   const theme = useTheme();
+  const { user } = useAuth();
   const { items: exercises, loading, error, retry } = useExercises();
   const { submit, loading: saving, error: submitError } = useCreateRoutine();
+  const isAdmin = user?.role?.slug === 'admin';
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<SelectedExercise[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [isPredefined, setIsPredefined] = useState(false);
 
   const filteredExercises = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -106,7 +110,7 @@ export default function CreateRoutineScreen() {
     const payload = {
       name: trimmedName,
       description: description.trim() || null,
-      is_predefined: false,
+      is_predefined: isAdmin ? isPredefined : false,
       exercises: buildRoutineExercises(selected),
     };
 
@@ -154,6 +158,31 @@ export default function CreateRoutineScreen() {
             Cada ejercicio guarda sets, reps, descanso y notas directamente en el pivot de rutina.
           </TextBlock>
         </View>
+
+        {isAdmin ? (
+          <View
+            style={[
+              styles.formCard,
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+            ]}>
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleText}>
+                <TextBlock variant="caption" color="muted">
+                  Rutina recomendada
+                </TextBlock>
+                <TextBlock variant="caption" color="subtle">
+                  Al activarla, la rutina será visible para todos los usuarios.
+                </TextBlock>
+              </View>
+              <Switch
+                value={isPredefined}
+                onValueChange={setIsPredefined}
+                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                thumbColor="#fff"
+              />
+            </View>
+          </View>
+        ) : null}
 
         {(validationError || submitError) ? (
           <EmptyState
@@ -262,7 +291,7 @@ export default function CreateRoutineScreen() {
                     pressed && styles.pressed,
                   ]}>
                   <View style={styles.exerciseToggleHeader}>
-                    <View style={styles.toggleText}>
+                    <View style={styles.selectedText}>
                       <TextBlock variant="title">{getExerciseDisplayName(item)}</TextBlock>
                       <TextBlock variant="caption" color="muted">
                         {item.muscle?.display_name ?? item.muscle?.name_es ?? item.muscle?.name_en ?? 'Músculo'}
@@ -307,7 +336,7 @@ export default function CreateRoutineScreen() {
                     { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border },
                   ]}>
                   <View style={styles.exerciseToggleHeader}>
-                    <View style={styles.toggleText}>
+                    <View style={styles.selectedText}>
                       <TextBlock variant="title">{getExerciseDisplayName(entry.exercise)}</TextBlock>
                       <TextBlock variant="caption" color="muted">
                         Orden {index + 1}
@@ -439,6 +468,12 @@ const styles = StyleSheet.create({
   fieldGroup: {
     gap: 8,
   },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
   input: {
     minHeight: 52,
     borderRadius: 16,
@@ -486,6 +521,10 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: 14,
     gap: 12,
+  },
+  selectedText: {
+    flex: 1,
+    gap: 4,
   },
   row: {
     flexDirection: 'row',

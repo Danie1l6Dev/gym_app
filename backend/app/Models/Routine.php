@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Builder;
+use App\Models\User;
 
 class Routine extends Model
 {
@@ -42,5 +44,13 @@ class Routine extends Model
     public function routineExercises(): HasMany
     {
         return $this->hasMany(RoutineExercise::class);
+    }
+
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        return $query->where(function (Builder $inner) use ($user): void {
+            $inner->where('is_predefined', true)
+                ->orWhere('user_id', $user->id);
+        });
     }
 }

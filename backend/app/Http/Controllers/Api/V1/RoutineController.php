@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\Routine\StoreRoutineRequest;
 use App\Http\Requests\Api\V1\Routine\UpdateRoutineRequest;
 use App\Http\Resources\Api\V1\RoutineResource;
 use App\Models\Routine;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 
 class RoutineController extends Controller
@@ -19,13 +20,7 @@ class RoutineController extends Controller
 
         $routines = Routine::query()
             ->with(['user', 'exercises.muscle'])
-            ->when(
-                ! $user->role || $user->role->slug !== 'admin',
-                fn ($query) => $query->where(function ($inner) use ($user): void {
-                    $inner->where('user_id', $user->id)
-                        ->orWhere('is_predefined', true);
-                })
-            )
+            ->visibleTo($user)
             ->latest()
             ->paginate($filters['per_page'] ?? 15);
 
@@ -56,7 +51,7 @@ class RoutineController extends Controller
 
     public function show(Routine $routine): JsonResponse
     {
-        $this->authorizeAccess($routine);
+        $this->authorizeViewAccess($routine, request()->user());
 
         return RoutineResource::make($routine->load(['user', 'exercises.muscle']))
             ->additional(['message' => 'Rutina obtenida correctamente.'])
@@ -65,16 +60,20 @@ class RoutineController extends Controller
 
     public function update(UpdateRoutineRequest $request, Routine $routine): JsonResponse
     {
-        $this->authorizeAccess($routine);
+        $this->authorizeManageAccess($routine, $request->user());
 
         $data = $request->validated();
 
         $updates = [];
 
-        foreach (['name', 'description', 'is_predefined'] as $field) {
+        foreach (['name', 'description'] as $field) {
             if (array_key_exists($field, $data)) {
                 $updates[$field] = $data[$field];
             }
+        }
+
+        if (array_key_exists('is_predefined', $data) && $request->user()->role?->slug === 'admin') {
+            $updates['is_predefined'] = (bool) $data['is_predefined'];
         }
 
         $routine->update($updates);
@@ -90,7 +89,7 @@ class RoutineController extends Controller
 
     public function destroy(Routine $routine): JsonResponse
     {
-        $this->authorizeAccess($routine);
+        $this->authorizeManageAccess($routine, request()->user());
 
         $routine->delete();
 
@@ -100,15 +99,36 @@ class RoutineController extends Controller
         ]);
     }
 
-    private function authorizeAccess(Routine $routine): void
+    private function authorizeViewAccess(Routine $routine, User $user): void
     {
-        $user = request()->user();
-
-        if ($user->role?->slug === 'admin') {
+        if ($this->canViewRoutine($routine, $user)) {
             return;
         }
 
-        abort_unless($routine->user_id === $user->id || $routine->is_predefined, 403, 'No puedes acceder a esta rutina.');
+        abort(403, 'No puedes acceder a esta rutina.');
+    }
+
+    private function authorizeManageAccess(Routine $routine, User $user): void
+    {
+        if ($this->canManageRoutine($routine, $user)) {
+            return;
+        }
+
+        abort(403, 'No puedes modificar esta rutina.');
+    }
+
+    private function canViewRoutine(Routine $routine, User $user): bool
+    {
+        return $routine->is_predefined || $routine->user_id === $user->id;
+    }
+
+    private function canManageRoutine(Routine $routine, User $user): bool
+    {
+        if ($routine->is_predefined) {
+            return $user->role?->slug === 'admin';
+        }
+
+        return $routine->user_id === $user->id;
     }
 
     private function syncExercises(Routine $routine, array $exercises): void

@@ -70,7 +70,7 @@ class GymAppApiTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $user = User::query()->where('email', 'user1@gymapp.com')->firstOrFail();
-        $exercise = Exercise::query()->where('external_id', 'bench-press')->firstOrFail();
+        $exercise = $this->createExercise();
 
         $response = $this->actingAs($user, 'sanctum')->postJson('/api/v1/routines', [
             'name' => 'Rutina de prueba',
@@ -90,6 +90,89 @@ class GymAppApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.name', 'Rutina de prueba')
             ->assertJsonPath('data.exercises.0.pivot.sets', 3);
+    }
+
+    public function test_admin_can_create_recommended_routine(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $admin = User::query()->where('email', 'admin@gymapp.com')->firstOrFail();
+        $exercise = $this->createExercise();
+
+        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/v1/routines', [
+            'name' => 'Rutina Recomendada',
+            'description' => 'Rutina recomendada por el admin.',
+            'is_predefined' => true,
+            'exercises' => [
+                [
+                    'exercise_id' => $exercise->id,
+                    'position' => 1,
+                    'sets' => 4,
+                    'reps' => 8,
+                    'rest_seconds' => 90,
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'Rutina Recomendada')
+            ->assertJsonPath('data.is_predefined', true);
+
+        $this->assertSame(1, Routine::query()->where('name', 'Rutina Recomendada')->where('is_predefined', true)->count());
+    }
+
+    public function test_routine_index_only_exposes_visible_routines_for_regular_users(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $user = User::query()->where('email', 'user1@gymapp.com')->firstOrFail();
+        $admin = User::query()->where('email', 'admin@gymapp.com')->firstOrFail();
+        $user2 = User::query()->where('email', 'user2@gymapp.com')->firstOrFail();
+        $exercise = $this->createExercise();
+
+        $this->createRoutine($admin, 'Rutina Recomendada', true, $exercise);
+        $this->createRoutine($user, 'Rutina Privada Usuario 1', false, $exercise);
+        $this->createRoutine($user2, 'Rutina Privada Usuario 2', false, $exercise);
+
+        $response = $this->actingAs($user, 'sanctum')->getJson('/api/v1/routines');
+
+        $response->assertOk();
+
+        $names = collect($response->json('data'))->pluck('name');
+
+        $this->assertTrue($names->contains('Rutina Recomendada'));
+        $this->assertTrue($names->contains('Rutina Privada Usuario 1'));
+        $this->assertFalse($names->contains('Rutina Privada Usuario 2'));
+    }
+
+    public function test_user_cannot_view_another_users_private_routine(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $user = User::query()->where('email', 'user1@gymapp.com')->firstOrFail();
+        $user2 = User::query()->where('email', 'user2@gymapp.com')->firstOrFail();
+        $exercise = $this->createExercise();
+        $otherRoutine = $this->createRoutine($user2, 'Rutina Privada Usuario 2', false, $exercise);
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/v1/routines/'.$otherRoutine->id)
+            ->assertForbidden();
+    }
+
+    public function test_admin_user_detail_does_not_expose_private_routines_from_other_users(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $admin = User::query()->where('email', 'admin@gymapp.com')->firstOrFail();
+        $user = User::query()->where('email', 'user2@gymapp.com')->firstOrFail();
+        $exercise = $this->createExercise();
+        $this->createRoutine($user, 'Rutina Privada Usuario 2', false, $exercise);
+
+        $response = $this->actingAs($admin, 'sanctum')->getJson('/api/v1/admin/users/'.$user->id);
+
+        $response->assertOk();
+        $this->assertSame([], $response->json('data.routines'));
     }
 
     public function test_admin_can_create_membership_with_final_contract(): void
@@ -321,5 +404,60 @@ class GymAppApiTest extends TestCase
         $this->assertSame(1, Exercise::query()->where('external_id', 'incline-bench-press')->count());
         $exercise->refresh();
         $this->assertSame('exercise_db_v2', $exercise->source);
+    }
+
+    private function createExercise(): Exercise
+    {
+        $muscle = Muscle::query()->updateOrCreate(
+            ['slug' => 'chest'],
+            [
+                'name_en' => 'Chest',
+                'name_es' => 'Pecho',
+            ]
+        );
+
+        return Exercise::query()->updateOrCreate(
+            ['external_id' => 'bench-press'],
+            [
+                'muscle_id' => $muscle->id,
+                'source' => 'exercise_api',
+                'name_original' => 'Bench Press',
+                'name_es' => 'Press de banca',
+                'body_part' => 'Chest',
+                'target_muscle' => 'Pectorals',
+                'secondary_muscles' => ['Triceps', 'Anterior Deltoids'],
+                'equipment' => ['Barbell', 'Bench'],
+                'instructions_original' => ['Lie on a flat bench with your feet planted firmly on the floor.'],
+                'instructions_es' => ['Acuéstate en un banco plano con los pies firmes en el suelo.'],
+                'raw_payload' => [
+                    'id' => 'bench-press',
+                    'name' => 'Bench Press',
+                ],
+                'synced_at' => now(),
+                'name_en' => 'Bench Press',
+                'description_en' => 'Lie on a flat bench with your feet planted firmly on the floor.',
+                'description_es' => 'Acuéstate en un banco plano con los pies firmes en el suelo.',
+            ]
+        );
+    }
+
+    private function createRoutine(User $user, string $name, bool $isPredefined, Exercise $exercise): Routine
+    {
+        $routine = Routine::query()->create([
+            'user_id' => $user->id,
+            'name' => $name,
+            'description' => $name.' description',
+            'is_predefined' => $isPredefined,
+        ]);
+
+        $routine->exercises()->attach($exercise->id, [
+            'position' => 1,
+            'sets' => 3,
+            'reps' => 10,
+            'rest_seconds' => 60,
+            'notes' => null,
+        ]);
+
+        return $routine;
     }
 }
