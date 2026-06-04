@@ -77,7 +77,8 @@ function ExerciseSelectionCard({
           <Image
             source={{ uri: exercise.gif_url }}
             style={styles.exerciseImage}
-            contentFit="cover"
+            contentFit="contain"
+            contentPosition="center"
             cachePolicy="memory-disk"
             transition={120}
           />
