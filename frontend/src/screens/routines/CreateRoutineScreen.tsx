@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { Alert, Modal } from 'react-native';
 import {
   FlatList,
   Pressable,
@@ -9,6 +10,8 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
+import { Image } from 'expo-image';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { AppHeader } from '@/components/AppHeader';
 import { EmptyState } from '@/components/EmptyState';
@@ -17,11 +20,11 @@ import { SearchBar } from '@/components/SearchBar';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS, ROUTES } from '@/constants';
-import { useAuth, useCreateRoutine, useExercises } from '@/hooks';
+import { useAuth, useCreateRoutine, useMuscles, usePaginatedExercises } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
 import type { Exercise } from '@/interfaces/exercise';
 import type { RoutineInputExercise } from '@/interfaces/routine';
-import { getExerciseDisplayName } from '@/utils/fitness';
+import { getExerciseDescription, getExerciseDisplayName, getMuscleDisplayName, getMuscleSubtext } from '@/utils/fitness';
 
 type SelectedExercise = {
   exercise: Exercise;
@@ -42,28 +45,230 @@ function buildRoutineExercises(selected: SelectedExercise[]): RoutineInputExerci
   }));
 }
 
+function ExerciseSelectionCard({
+  exercise,
+  selected,
+  onPress,
+}: {
+  exercise: Exercise;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  const title = getExerciseDisplayName(exercise);
+  const description = getExerciseDescription(exercise);
+  const muscleLabel =
+    exercise.muscle?.display_name ?? exercise.muscle?.name_es ?? exercise.muscle?.name_en ?? '';
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.exerciseCard,
+        {
+          backgroundColor: theme.colors.surface,
+          borderColor: selected ? theme.colors.primary : theme.colors.border,
+          shadowColor: selected ? theme.colors.primary : theme.colors.shadow,
+        },
+        pressed && styles.pressed,
+      ]}>
+      <View style={styles.exerciseImageWrap}>
+        {exercise.gif_url ? (
+          <Image
+            source={{ uri: exercise.gif_url }}
+            style={styles.exerciseImage}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={120}
+          />
+        ) : (
+          <View style={[styles.exercisePlaceholder, { backgroundColor: theme.colors.surfaceElevated }]}>
+            <MaterialCommunityIcons name="dumbbell" size={24} color={theme.colors.primary} />
+          </View>
+        )}
+        <View style={[styles.exerciseBadge, { backgroundColor: theme.colors.surfaceElevated }]}>
+          <TextBlock variant="caption" color="primary">
+            {selected ? 'Seleccionado' : 'Añadir'}
+          </TextBlock>
+        </View>
+      </View>
+
+      <View style={styles.exerciseCardBody}>
+        <View style={styles.exerciseCardHeader}>
+          <TextBlock variant="title" style={styles.exerciseTitle} numberOfLines={2}>
+            {title}
+          </TextBlock>
+          <MaterialCommunityIcons
+            name={selected ? 'check-circle' : 'circle-outline'}
+            size={20}
+            color={selected ? theme.colors.primary : theme.colors.textSubtle}
+          />
+        </View>
+
+        {description ? (
+          <TextBlock variant="caption" color="muted" numberOfLines={2}>
+            {description}
+          </TextBlock>
+        ) : null}
+
+        {muscleLabel ? (
+          <TextBlock variant="caption" color="subtle" numberOfLines={1}>
+            {muscleLabel}
+          </TextBlock>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
 export default function CreateRoutineScreen() {
   const theme = useTheme();
   const { user } = useAuth();
-  const { items: exercises, loading, error, retry } = useExercises();
+  const { items: muscles, loading: musclesLoading, error: musclesError, retry: retryMuscles } =
+    useMuscles({ perPage: 100 });
+  const [selectedMuscleId, setSelectedMuscleId] = useState<string | number | null>(null);
+  const [muscleModalVisible, setMuscleModalVisible] = useState(false);
+  const [muscleSearch, setMuscleSearch] = useState('');
+  const [exerciseSearch, setExerciseSearch] = useState('');
+  const selectedMuscle = useMemo(
+    () => muscles.find((muscle) => String(muscle.id) === String(selectedMuscleId ?? '')) ?? null,
+    [muscles, selectedMuscleId]
+  );
+
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const [exercisesSectionOffset, setExercisesSectionOffset] = useState<number>(0);
+  const [configSectionOffset, setConfigSectionOffset] = useState<number>(0);
+  const selectedCountRef = useRef<number>(0);
+
+  const {
+    items: exercises,
+    loading: exercisesLoading,
+    loadingPage: exercisesLoadingPage,
+    error: exercisesError,
+    retry: retryExercises,
+    page: exercisesPage,
+    lastPage: exercisesLastPage,
+    goToPage,
+  } = usePaginatedExercises({
+    muscleId: selectedMuscleId ?? undefined,
+    perPage: 10,
+    keepPreviousPages: false,
+    enabled: Boolean(selectedMuscleId),
+  });
+
+  const pageOptions = useMemo(() => {
+    const candidates = new Set<number>([
+      exercisesPage - 2,
+      exercisesPage - 1,
+      exercisesPage,
+      exercisesPage + 1,
+      exercisesPage + 2,
+    ]);
+
+    return [...candidates]
+      .filter((value) => value > 1 && value < exercisesLastPage)
+      .sort((a, b) => a - b);
+  }, [exercisesLastPage, exercisesPage]);
+
+  const scrollToExercisesStart = useCallback(() => {
+    if (!scrollViewRef.current) {
+      return;
+    }
+
+    const scrollView = scrollViewRef.current as any;
+    const offset = exercisesSectionOffset || 0;
+
+    if (typeof scrollView.scrollTo === 'function') {
+      try {
+        scrollView.scrollTo({ y: offset, animated: true });
+        return;
+      } catch {
+        scrollView.scrollTo({ top: offset, left: 0, behavior: 'smooth' });
+        return;
+      }
+    }
+  }, [exercisesSectionOffset]);
+
+  const scrollToConfigStart = useCallback(() => {
+    if (!scrollViewRef.current) {
+      return;
+    }
+
+    const scrollView = scrollViewRef.current as any;
+    const offset = configSectionOffset || 0;
+
+    if (typeof scrollView.scrollTo === 'function') {
+      try {
+        scrollView.scrollTo({ y: offset, animated: true });
+        return;
+      } catch {
+        scrollView.scrollTo({ top: offset, left: 0, behavior: 'smooth' });
+        return;
+      }
+    }
+  }, [configSectionOffset]);
+
+  async function handlePageChange(nextPage: number) {
+    await goToPage(nextPage);
+  }
+
+  useEffect(() => {
+    if (exercisesSectionOffset <= 0) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      scrollToExercisesStart();
+    }, 100);
+
+    return () => clearTimeout(timeout);
+  }, [exercisesPage, exercisesSectionOffset, scrollToExercisesStart]);
+
   const { submit, loading: saving, error: submitError } = useCreateRoutine();
   const isAdmin = user?.role?.slug === 'admin';
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<SelectedExercise[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isPredefined, setIsPredefined] = useState(false);
 
+  useEffect(() => {
+    const previousCount = selectedCountRef.current;
+    if (selected.length > previousCount && configSectionOffset > 0) {
+      const timeout = setTimeout(() => {
+        scrollToConfigStart();
+      }, 100);
+
+      selectedCountRef.current = selected.length;
+      return () => clearTimeout(timeout);
+    }
+
+    selectedCountRef.current = selected.length;
+    return undefined;
+  }, [selected.length, configSectionOffset, scrollToConfigStart]);
+
+  const filteredMuscles = useMemo(() => {
+    const q = muscleSearch.trim().toLowerCase();
+    if (!q) return muscles;
+
+    return muscles.filter((muscle) => {
+      const displayName = getMuscleDisplayName(muscle).toLowerCase();
+      const subtext = getMuscleSubtext(muscle).toLowerCase();
+      const slug = (muscle.slug ?? '').toLowerCase();
+
+      return displayName.includes(q) || subtext.includes(q) || slug.includes(q);
+    });
+  }, [muscleSearch, muscles]);
+
   const filteredExercises = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = exerciseSearch.trim().toLowerCase();
     if (!q) return exercises;
     return exercises.filter((exercise) => {
       const title = getExerciseDisplayName(exercise).toLowerCase();
       const muscle = (exercise.muscle?.display_name ?? exercise.muscle?.name_es ?? exercise.muscle?.name_en ?? '').toLowerCase();
       return title.includes(q) || muscle.includes(q);
     });
-  }, [exercises, search]);
+  }, [exerciseSearch, exercises]);
 
   const selectedIds = useMemo(() => new Set(selected.map((entry) => String(entry.exercise.id))), [selected]);
 
@@ -97,13 +302,19 @@ export default function CreateRoutineScreen() {
   async function handleSubmit() {
     const trimmedName = name.trim();
 
+    console.log('[CreateRoutine] handleSubmit invoked', { name: trimmedName, selectedCount: selected.length });
+
     if (!trimmedName) {
-      setValidationError('El nombre de la rutina es obligatorio.');
+      const message = 'El nombre de la rutina es obligatorio.';
+      setValidationError(message);
+      Alert.alert('Atención', message);
       return;
     }
 
     if (selected.length === 0) {
-      setValidationError('Selecciona al menos un ejercicio.');
+      const message = 'Selecciona al menos un ejercicio.';
+      setValidationError(message);
+      Alert.alert('Atención', message);
       return;
     }
 
@@ -116,23 +327,30 @@ export default function CreateRoutineScreen() {
 
     try {
       setValidationError(null);
+      console.log('[CreateRoutine] payload', payload);
       const result = await submit(payload);
-      if (result.item) {
-        router.replace({
-          pathname: ROUTES.app.routineDetail,
-          params: { id: String(result.item.id) },
-        });
+      console.log('[CreateRoutine] submit result', result);
+      if (result?.item?.id) {
+        router.push(`/routines/${String(result.item.id)}`);
+        return;
       }
-    } catch {
-      // error state already handled in hook
+
+      setValidationError('No se pudo obtener el detalle de la rutina creada. Intenta nuevamente.');
+    } catch (error) {
+      console.error('[CreateRoutine] submit error', error);
+      if (error instanceof Error) {
+        setValidationError(error.message);
+      } else {
+        setValidationError('Ocurrió un error al crear la rutina.');
+      }
     }
   }
 
-  if (loading && exercises.length === 0) {
+  if (musclesLoading && muscles.length === 0) {
     return (
       <ScreenContainer>
         <AppHeader title="Crear rutina" subtitle="Cargando catálogo de ejercicios" showBack />
-        <LoadingSpinner label="Preparando formulario" />
+        <LoadingSpinner label="Preparando músculos" />
       </ScreenContainer>
     );
   }
@@ -140,6 +358,7 @@ export default function CreateRoutineScreen() {
   return (
     <ScreenContainer scrollable={false}>
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
@@ -206,6 +425,8 @@ export default function CreateRoutineScreen() {
               onChangeText={setName}
               placeholder="Push Day"
               placeholderTextColor={theme.colors.textSubtle}
+              autoCapitalize="words"
+              autoCorrect={false}
               style={[
                 styles.input,
                 { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border, color: theme.colors.text },
@@ -237,77 +458,272 @@ export default function CreateRoutineScreen() {
             styles.sectionCard,
             { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
           ]}>
-          <View style={styles.sectionHeader}>
-            <TextBlock variant="title">Seleccionar ejercicios</TextBlock>
-            <TextBlock variant="caption" color="subtle">
-              {selected.length} seleccionados
+            <View style={styles.sectionHeader}>
+              <View>
+                <TextBlock variant="title">
+                  {selectedMuscle ? getMuscleDisplayName(selectedMuscle) : '1. Elige un músculo'}
+                </TextBlock>
+                <TextBlock variant="caption" color="subtle">
+                  {selectedMuscle ? 'Músculo seleccionado' : 'Selecciona un grupo'}
+                </TextBlock>
+              </View>
+              <Pressable
+                onPress={() => setMuscleModalVisible(true)}
+                style={({ pressed }) => [
+                  styles.muscleButton,
+                  { backgroundColor: theme.colors.primary },
+                  pressed && styles.pressed,
+                ]}>
+                <TextBlock variant="button" style={styles.muscleButtonLabel}>
+                  {selectedMuscle ? 'Cambiar músculo' : 'Elegir músculo'}
+                </TextBlock>
+              </Pressable>
+            </View>
+
+            <TextBlock variant="caption" color="muted">
+              Usa el picker para buscar y seleccionar el músculo antes de elegir ejercicios.
             </TextBlock>
-          </View>
 
-          <SearchBar
-            label="Buscar ejercicios"
-            placeholder="Buscar por nombre o músculo"
-            value={search}
-            onChangeText={setSearch}
-          />
-
-          {error ? (
-            <EmptyState
-              title="No pudimos cargar los ejercicios"
-              description={error}
-              icon="alert-circle-outline"
-              actionLabel="Reintentar"
-              onAction={retry}
-            />
-          ) : null}
-
-          {filteredExercises.length === 0 && !error ? (
-            <EmptyState
-              title="Sin resultados"
-              description="Prueba con otro texto de búsqueda."
-              icon="magnify"
-            />
-          ) : null}
-
-          <FlatList
-            data={filteredExercises}
-            keyExtractor={(item) => String(item.id)}
-            scrollEnabled={false}
-            contentContainerStyle={styles.exerciseList}
-            renderItem={({ item }) => {
-              const selectedItem = selectedIds.has(String(item.id));
-
-              return (
-                <Pressable
-                  onPress={() => toggleExercise(item)}
-                  style={({ pressed }) => [
-                    styles.exerciseToggle,
-                    {
-                      backgroundColor: selectedItem
-                        ? theme.colors.surfaceElevated
-                        : theme.colors.backgroundSoft,
-                      borderColor: selectedItem ? theme.colors.primary : theme.colors.border,
-                    },
-                    pressed && styles.pressed,
-                  ]}>
-                  <View style={styles.exerciseToggleHeader}>
-                    <View style={styles.selectedText}>
-                      <TextBlock variant="title">{getExerciseDisplayName(item)}</TextBlock>
-                      <TextBlock variant="caption" color="muted">
-                        {item.muscle?.display_name ?? item.muscle?.name_es ?? item.muscle?.name_en ?? 'Músculo'}
+            <Modal visible={muscleModalVisible} animationType="slide" transparent>
+              <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.35)' }]}> 
+                <View style={[styles.modalContent, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}> 
+                  <View style={styles.modalHeader}>
+                    <TextBlock variant="title">Seleccionar músculo</TextBlock>
+                    <Pressable onPress={() => setMuscleModalVisible(false)}>
+                      <TextBlock variant="button" color="primary">
+                        Cerrar
                       </TextBlock>
-                    </View>
-                    <TextBlock variant="caption" color={selectedItem ? 'primary' : 'muted'}>
-                      {selectedItem ? 'Seleccionado' : 'Añadir'}
-                    </TextBlock>
+                    </Pressable>
                   </View>
-                </Pressable>
-              );
-            }}
-          />
+
+                  <SearchBar
+                    label="Buscar músculo"
+                    placeholder="Pecho, espalda, glúteos..."
+                    value={muscleSearch}
+                    onChangeText={setMuscleSearch}
+                  />
+
+                  {musclesError ? (
+                    <EmptyState
+                      title="No pudimos cargar los músculos"
+                      description={musclesError}
+                      icon="alert-circle-outline"
+                      actionLabel="Reintentar"
+                      onAction={retryMuscles}
+                    />
+                  ) : null}
+
+                  {musclesLoading && muscles.length === 0 ? (
+                    <LoadingSpinner label="Cargando músculos" />
+                  ) : null}
+
+                  {!musclesLoading && filteredMuscles.length === 0 ? (
+                    <EmptyState
+                      title="Sin músculos"
+                      description="Prueba con otra búsqueda."
+                      icon="arm-flex"
+                    />
+                  ) : null}
+
+                  <ScrollView contentContainerStyle={styles.muscleGrid} showsVerticalScrollIndicator={false}>
+                    {filteredMuscles.map((muscle) => {
+                      const selected = String(muscle.id) === String(selectedMuscleId ?? '');
+                      return (
+                        <Pressable
+                          key={muscle.id}
+                          onPress={() => {
+                            setSelectedMuscleId(muscle.id);
+                            setExerciseSearch('');
+                            setMuscleModalVisible(false);
+                          }}
+                          style={({ pressed }) => [
+                            styles.muscleChip,
+                            {
+                              backgroundColor: selected ? theme.colors.surfaceElevated : theme.colors.backgroundSoft,
+                              borderColor: selected ? theme.colors.primary : theme.colors.border,
+                            },
+                            pressed && styles.pressed,
+                          ]}>
+                          <View style={styles.muscleChipText}>
+                            <TextBlock variant="caption" color={selected ? 'primary' : 'muted'} numberOfLines={1}>
+                              {getMuscleDisplayName(muscle)}
+                            </TextBlock>
+                            <TextBlock variant="caption" color="subtle" numberOfLines={1}>
+                              {getMuscleSubtext(muscle) || muscle.slug || 'Grupo muscular'}
+                            </TextBlock>
+                          </View>
+                          <MaterialCommunityIcons
+                            name={selected ? 'check-circle' : 'circle-outline'}
+                            size={18}
+                            color={selected ? theme.colors.primary : theme.colors.textSubtle}
+                          />
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              </View>
+            </Modal>
         </View>
 
         <View
+          style={[
+            styles.sectionCard,
+            { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+          ]}>
+          <View style={styles.sectionHeader}>
+            <TextBlock variant="title">2. Ejercicios</TextBlock>
+            <TextBlock variant="caption" color="subtle">
+              {selectedMuscle
+                ? `${getMuscleDisplayName(selectedMuscle)} · página ${exercisesPage} de ${exercisesLastPage}`
+                : 'Primero selecciona un músculo'}
+            </TextBlock>
+          </View>
+
+          {!selectedMuscle ? (
+            <EmptyState
+              title="Elige un músculo primero"
+              description="Solo después mostraremos los ejercicios y sus GIFs."
+              icon="arm-flex"
+            />
+          ) : (
+            <>
+              <SearchBar
+                label="Buscar ejercicios"
+                placeholder={`Buscar en ${getMuscleDisplayName(selectedMuscle)}`}
+                value={exerciseSearch}
+                onChangeText={setExerciseSearch}
+              />
+
+              {exercisesError ? (
+                <EmptyState
+                  title="No pudimos cargar los ejercicios"
+                  description={exercisesError}
+                  icon="alert-circle-outline"
+                  actionLabel="Reintentar"
+                  onAction={retryExercises}
+                />
+              ) : null}
+
+              {exercisesLoading && exercises.length === 0 ? (
+                <LoadingSpinner label="Cargando ejercicios" />
+              ) : null}
+
+              {!exercisesLoading && filteredExercises.length === 0 ? (
+                <EmptyState
+                  title="Sin ejercicios"
+                  description="Prueba con otro texto o elige otro músculo."
+                  icon="magnify"
+                />
+              ) : null}
+
+              <FlatList
+                data={filteredExercises}
+                keyExtractor={(item) => String(item.id)}
+                scrollEnabled={false}
+                contentContainerStyle={styles.exerciseList}
+                renderItem={({ item }) => {
+                  const selectedItem = selectedIds.has(String(item.id));
+
+                  return (
+                    <ExerciseSelectionCard
+                      exercise={item}
+                      selected={selectedItem}
+                      onPress={() => toggleExercise(item)}
+                    />
+                  );
+                }}
+              />
+
+              {exercisesLastPage > 1 ? (
+                <View
+                  style={[
+                    styles.paginationCard,
+                    { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border },
+                  ]}>
+                  <View style={styles.paginationHeader}>
+                    <TextBlock variant="caption" color="subtle">
+                      Página {exercisesPage} de {exercisesLastPage}
+                    </TextBlock>
+                    {exercisesLoadingPage ? (
+                      <LoadingSpinner label="Cargando página" />
+                    ) : null}
+                  </View>
+
+                  <View style={styles.paginationControls}>
+                    <Pressable
+                      onPress={() => void handlePageChange(1)}
+                      disabled={exercisesLoadingPage || exercisesPage === 1}
+                      style={({ pressed }) => [
+                        styles.paginationButton,
+                        { borderColor: theme.colors.border },
+                        pressed && !exercisesLoadingPage && exercisesPage !== 1 && styles.pressed,
+                        (exercisesLoadingPage || exercisesPage === 1) && styles.disabled,
+                      ]}>
+                      <TextBlock variant="button" color="primary">
+                        1
+                      </TextBlock>
+                    </Pressable>
+
+                    <View style={styles.pageNumberRow}>
+                      {pageOptions.map((value, index) => {
+                        const previous = pageOptions[index - 1];
+                        const showEllipsis = typeof previous === 'number' && value - previous > 1;
+
+                        return (
+                          <View key={value} style={styles.pageNumberGroup}>
+                            {showEllipsis ? (
+                              <TextBlock variant="caption" color="subtle">
+                                ...
+                              </TextBlock>
+                            ) : null}
+                            <Pressable
+                              onPress={() => void handlePageChange(value)}
+                              disabled={exercisesLoadingPage || value === exercisesPage}
+                              style={({ pressed }) => [
+                                styles.pageNumberButton,
+                                {
+                                  borderColor:
+                                    value === exercisesPage ? theme.colors.primary : theme.colors.border,
+                                  backgroundColor:
+                                    value === exercisesPage
+                                      ? theme.colors.backgroundSelected
+                                      : theme.colors.surface,
+                                },
+                                pressed && !exercisesLoadingPage && value !== exercisesPage && styles.pressed,
+                                (exercisesLoadingPage || value === exercisesPage) && styles.disabled,
+                              ]}>
+                              <TextBlock variant="button" color={value === exercisesPage ? 'primary' : 'muted'}>
+                                {value}
+                              </TextBlock>
+                            </Pressable>
+                          </View>
+                        );
+                      })}
+                    </View>
+
+                    <Pressable
+                      onPress={() => void handlePageChange(exercisesLastPage)}
+                      disabled={exercisesLoadingPage || exercisesPage === exercisesLastPage}
+                      style={({ pressed }) => [
+                        styles.paginationButton,
+                        { borderColor: theme.colors.border },
+                        pressed && !exercisesLoadingPage && exercisesPage !== exercisesLastPage && styles.pressed,
+                        (exercisesLoadingPage || exercisesPage === exercisesLastPage) && styles.disabled,
+                      ]}>
+                      <TextBlock variant="button" color="primary">
+                        {exercisesLastPage}
+                      </TextBlock>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
+            </>
+          )}
+        </View>
+
+        <View
+          onLayout={(event) => setConfigSectionOffset(event.nativeEvent.layout.y)}
           style={[
             styles.sectionCard,
             { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
@@ -498,13 +914,70 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
+  muscleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  muscleChip: {
+    flexGrow: 1,
+    flexBasis: '48%',
+    minHeight: 58,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  muscleChipText: {
+    flex: 1,
+    gap: 2,
+  },
   exerciseList: {
     gap: 12,
   },
-  exerciseToggle: {
+  exerciseCard: {
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 14,
+    overflow: 'hidden',
+  },
+  exerciseImageWrap: {
+    position: 'relative',
+    width: '100%',
+    aspectRatio: 16 / 10,
+  },
+  exerciseImage: {
+    width: '100%',
+    height: '100%',
+  },
+  exercisePlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exerciseBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  exerciseCardBody: {
+    padding: 16,
+    gap: 8,
+  },
+  exerciseCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  exerciseTitle: {
+    flex: 1,
   },
   exerciseToggleHeader: {
     flexDirection: 'row',
@@ -540,6 +1013,45 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
   },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    maxHeight: '82%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 18,
+    gap: 14,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalScroll: {
+    flexGrow: 1,
+    paddingBottom: 26,
+  },
+  muscleButton: {
+    borderRadius: 16,
+    minHeight: 42,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  muscleButtonLabel: {
+    color: '#ffffff',
+  },
+
   submitButton: {
     minHeight: 54,
     borderRadius: 18,
@@ -552,6 +1064,49 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.9,
     transform: [{ scale: 0.99 }],
+  },
+  paginationCard: {
+    borderRadius: DIMENSIONS.cardRadius,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 14,
+    gap: 12,
+  },
+  paginationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  paginationControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 10,
+  },
+  paginationButton: {
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  pageNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  pageNumberGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pageNumberButton: {
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   disabled: {
     opacity: 0.7,

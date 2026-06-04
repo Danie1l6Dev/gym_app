@@ -7,13 +7,23 @@ import { fetchExercises } from '@/services';
 export function useExercises(filters: ExerciseFilters = {}) {
   const [items, setItems] = useState<Exercise[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(filters.enabled !== false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (filters.enabled === false) {
+      setItems([]);
+      setMeta(null);
+      setError(null);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     try {
       setError(null);
+      setLoading(true);
       const response = await fetchExercises({
         muscleId: filters.muscleId,
         search: filters.search,
@@ -28,7 +38,7 @@ export function useExercises(filters: ExerciseFilters = {}) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filters.muscleId, filters.page, filters.perPage, filters.search]);
+  }, [filters.enabled, filters.muscleId, filters.page, filters.perPage, filters.search]);
 
   const refresh = useCallback(async () => {
     if (loading) {
@@ -45,12 +55,16 @@ export function useExercises(filters: ExerciseFilters = {}) {
   }, [load]);
 
   useEffect(() => {
+    if (filters.enabled === false) {
+      return;
+    }
+
     const timeout = setTimeout(() => {
       void load();
     }, 0);
 
     return () => clearTimeout(timeout);
-  }, [load]);
+  }, [filters.enabled, load]);
 
   return {
     items,

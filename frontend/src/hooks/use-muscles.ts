@@ -3,7 +3,11 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Muscle, PaginationMeta } from '@/interfaces/muscle';
 import { fetchMuscles } from '@/services';
 
-export function useMuscles() {
+type UseMusclesFilters = {
+  perPage?: number;
+};
+
+export function useMuscles(filters: UseMusclesFilters = {}) {
   const [items, setItems] = useState<Muscle[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -13,7 +17,8 @@ export function useMuscles() {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const response = await fetchMuscles({ perPage: 10 });
+      setLoading(true);
+      const response = await fetchMuscles({ perPage: filters.perPage ?? 10 });
       setItems(response.items);
       setMeta(response.meta ?? null);
     } catch (err) {
@@ -22,7 +27,7 @@ export function useMuscles() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [filters.perPage]);
 
   const refresh = useCallback(async () => {
     if (loading) {

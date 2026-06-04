@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { DIMENSIONS } from '@/constants';
+import { ROUTES } from '@/constants';
 import { useTheme } from '@/hooks/use-theme';
 import { capitalize } from '@/utils';
 import { TextBlock } from './TextBlock';
@@ -24,7 +25,14 @@ export function AppHeader({ title, subtitle, showBack = false, rightElement }: A
         {showBack ? (
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.back()}
+            onPress={() => {
+              if (typeof router.canGoBack === 'function' && router.canGoBack()) {
+                router.back();
+                return;
+              }
+
+              router.replace(ROUTES.app.home);
+            }}
             style={({ pressed }) => [
               styles.backButton,
               { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border },
