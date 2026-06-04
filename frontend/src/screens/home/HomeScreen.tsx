@@ -1,9 +1,11 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 import { useExercises, useMuscles, useRoutines } from '@/hooks';
 import { useAuth } from '@/hooks/use-auth';
+import { ROUTES } from '@/constants';
 import { TYPOGRAPHY } from '@/theme';
 
 const ICONS = {
@@ -54,12 +56,13 @@ function StatCard({
 }
 
 function QuickCard({
-  label, hint, icon,
+  label, hint, icon, onPress,
 }: {
-  label: string; hint: string; icon: string;
+  label: string; hint: string; icon: string; onPress: () => void;
 }) {
   return (
     <Pressable
+      onPress={onPress}
       style={({ hovered }) => [
         styles.quickCard,
         {
@@ -146,9 +149,24 @@ export default function HomeScreen() {
   ];
 
   const quickActions = [
-    { label: 'Crear nueva rutina', icon: ICONS.Repeat2, hint: 'Personaliza tu entrenamiento' },
-    { label: 'Ver progreso semanal', icon: ICONS.TrendingUp, hint: 'Gráficas de rendimiento' },
-    { label: 'Explorar ejercicios', icon: ICONS.Flame, hint: 'Catálogo completo' },
+    {
+      label: 'Crear nueva rutina',
+      icon: ICONS.Repeat2,
+      hint: 'Personaliza tu entrenamiento',
+      onPress: () => router.push(ROUTES.app.routineCreate),
+    },
+    {
+      label: 'Ver progreso semanal',
+      icon: ICONS.TrendingUp,
+      hint: 'Próximamente',
+      onPress: () => Alert.alert('Próximamente', 'Esta funcionalidad estará disponible pronto.'),
+    },
+    {
+      label: 'Explorar ejercicios',
+      icon: ICONS.Flame,
+      hint: 'Catálogo completo',
+      onPress: () => router.push(ROUTES.app.exercises),
+    },
   ];
 
   return (

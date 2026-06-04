@@ -97,7 +97,7 @@ export default function RoutinesScreen() {
             <AppHeader
               title="Rutinas"
               subtitle="Explora recomendaciones y tus rutinas personales."
-              rightElement={isAdmin ? (
+              rightElement={
                 <Pressable
                   onPress={() => router.push(ROUTES.app.routineCreate)}
                   style={({ pressed }) => [
@@ -109,7 +109,7 @@ export default function RoutinesScreen() {
                     Crear rutina
                   </TextBlock>
                 </Pressable>
-              ) : undefined}
+              }
             />
 
             <View

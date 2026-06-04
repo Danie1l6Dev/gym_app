@@ -39,4 +39,5 @@ export interface ExerciseFilters {
   search?: string;
   page?: number;
   perPage?: number;
+  enabled?: boolean;
 }

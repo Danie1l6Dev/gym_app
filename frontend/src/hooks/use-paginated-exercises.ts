@@ -18,11 +18,25 @@ export function usePaginatedExercises(filters: UsePaginatedExercisesOptions = {}
   const [lastPage, setLastPage] = useState(1);
   const [meta, setMeta] = useState<ExerciseListResponse['meta'] | null>(null);
 
+  const enabled = filters.enabled !== false;
   const perPage = filters.perPage ?? 10;
   const keepPreviousPages = filters.keepPreviousPages ?? true;
 
   const load = useCallback(
     async (nextPage: number, mode: 'initial' | 'refresh' | 'retry' | 'page' | 'append' = 'initial') => {
+      if (!enabled) {
+        setItems([]);
+        setMeta(null);
+        setError(null);
+        setPage(1);
+        setLastPage(1);
+        setLoading(false);
+        setRefreshing(false);
+        setLoadingMore(false);
+        setLoadingPage(false);
+        return;
+      }
+
       try {
         setError(null);
 
@@ -62,7 +76,7 @@ export function usePaginatedExercises(filters: UsePaginatedExercisesOptions = {}
         setRefreshing(false);
       }
     },
-    [filters.muscleId, filters.search, keepPreviousPages, perPage]
+    [enabled, filters.muscleId, filters.search, keepPreviousPages, perPage]
   );
 
   const refresh = useCallback(async () => {

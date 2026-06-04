@@ -41,7 +41,8 @@ function ExerciseCardBase({ exercise, onPress }: ExerciseCardProps) {
             recyclingKey={String(exercise.id)}
             source={{ uri: exercise.gif_url }}
             style={styles.thumbnail}
-            contentFit="cover"
+            contentFit="contain"
+            contentPosition="center"
             transition={140}
             cachePolicy="memory-disk"
           />
