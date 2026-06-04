@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import type { Muscle, PaginationMeta } from '@/interfaces/muscle';
 import { fetchMuscles } from '@/services';
-import type { Muscle } from '@/interfaces/muscle';
 
 export function useMuscles() {
   const [items, setItems] = useState<Muscle[]>([]);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -14,6 +15,7 @@ export function useMuscles() {
       setError(null);
       const response = await fetchMuscles({ perPage: 10 });
       setItems(response.items);
+      setMeta(response.meta ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No pudimos cargar los músculos.');
     } finally {
@@ -46,6 +48,7 @@ export function useMuscles() {
 
   return {
     items,
+    meta,
     loading,
     refreshing,
     error,

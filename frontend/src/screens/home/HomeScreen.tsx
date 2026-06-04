@@ -115,6 +115,7 @@ export default function HomeScreen() {
   const routines = useRoutines();
   const muscles = useMuscles();
   const exercises = useExercises();
+  const muscleCount = muscles.meta?.total ?? muscles.items.length;
   const exerciseCount = exercises.meta?.total ?? exercises.items.length;
 
   const stats = [
@@ -127,7 +128,7 @@ export default function HomeScreen() {
       glow: 'rgba(109,40,217,0.18)',
     },
     {
-      value: muscles.items.length,
+      value: muscleCount,
       label: 'Músculos',
       sub: muscles.error ?? 'grupos musculares registrados',
       icon: ICONS.Target,
