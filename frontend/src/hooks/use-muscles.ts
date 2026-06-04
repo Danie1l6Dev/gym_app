@@ -12,7 +12,7 @@ export function useMuscles() {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const response = await fetchMuscles({ perPage: 100 });
+      const response = await fetchMuscles({ perPage: 10 });
       setItems(response.items);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No pudimos cargar los músculos.');

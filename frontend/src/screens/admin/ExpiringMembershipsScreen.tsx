@@ -10,7 +10,7 @@ import { useExpiringMemberships } from '@/hooks';
 
 export default function ExpiringMembershipsScreen() {
   const { items, loading, refreshing, error, refresh, retry, loadMore } =
-    useExpiringMemberships(DEFAULT_EXPIRING_WINDOW_DAYS, 12);
+    useExpiringMemberships(DEFAULT_EXPIRING_WINDOW_DAYS, 10);
 
   if (loading && items.length === 0) {
     return (

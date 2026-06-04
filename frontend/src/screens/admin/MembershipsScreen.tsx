@@ -9,7 +9,7 @@ import { DIMENSIONS } from '@/constants';
 import { useAdminMemberships } from '@/hooks';
 
 export default function MembershipsScreen() {
-  const { items, loading, refreshing, error, refresh, retry, loadMore } = useAdminMemberships(12);
+  const { items, loading, refreshing, error, refresh, retry, loadMore } = useAdminMemberships(10);
 
   if (loading && items.length === 0) {
     return (

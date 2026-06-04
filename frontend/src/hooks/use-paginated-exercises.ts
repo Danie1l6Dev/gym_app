@@ -18,7 +18,7 @@ export function usePaginatedExercises(filters: UsePaginatedExercisesOptions = {}
   const [lastPage, setLastPage] = useState(1);
   const [meta, setMeta] = useState<ExerciseListResponse['meta'] | null>(null);
 
-  const perPage = filters.perPage ?? 25;
+  const perPage = filters.perPage ?? 10;
   const keepPreviousPages = filters.keepPreviousPages ?? true;
 
   const load = useCallback(

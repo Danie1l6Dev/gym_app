@@ -18,7 +18,7 @@ type RawRoutineItemResponse = {
 export async function fetchRoutines(): Promise<RoutineListResponse> {
   const response = await apiClient.get<RawRoutineResponse>('/api/v1/routines', {
     params: {
-      per_page: 100,
+      per_page: 10,
     },
   });
 

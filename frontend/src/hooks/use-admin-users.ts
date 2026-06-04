@@ -5,7 +5,7 @@ import { fetchAdminUsers } from '@/services';
 
 type AdminUsersRoleFilter = 'user' | 'admin';
 
-export function useAdminUsers(search: string, perPage = 15, role?: AdminUsersRoleFilter) {
+export function useAdminUsers(search: string, perPage = 10, role?: AdminUsersRoleFilter) {
   const [items, setItems] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

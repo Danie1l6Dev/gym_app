@@ -2,7 +2,6 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { DIMENSIONS } from '@/constants';
 import { useExercises, useMuscles, useRoutines } from '@/hooks';
 import { useAuth } from '@/hooks/use-auth';
 import { TYPOGRAPHY } from '@/theme';
@@ -115,7 +114,8 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const routines = useRoutines();
   const muscles = useMuscles();
-  const exercises = useExercises({ perPage: 100 });
+  const exercises = useExercises();
+  const exerciseCount = exercises.meta?.total ?? exercises.items.length;
 
   const stats = [
     {
@@ -135,7 +135,7 @@ export default function HomeScreen() {
       glow: 'rgba(139,92,246,0.16)',
     },
     {
-      value: exercises.items.length,
+      value: exerciseCount,
       label: 'Ejercicios',
       sub: exercises.error ?? 'ejercicios del catálogo local',
       icon: ICONS.Dumbbell,

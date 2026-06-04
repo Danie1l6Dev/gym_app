@@ -43,7 +43,7 @@ function buildRoutineExercises(selected: SelectedExercise[]): RoutineInputExerci
 
 export default function CreateRoutineScreen() {
   const theme = useTheme();
-  const { items: exercises, loading, error, retry } = useExercises({ perPage: 100 });
+  const { items: exercises, loading, error, retry } = useExercises();
   const { submit, loading: saving, error: submitError } = useCreateRoutine();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');

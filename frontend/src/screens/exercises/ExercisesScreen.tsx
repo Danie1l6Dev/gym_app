@@ -23,7 +23,7 @@ export default function ExercisesScreen() {
   const { items, loading, loadingMore, refreshing, error, hasMore, loadMore, refresh, retry, meta } =
     usePaginatedExercises({
       muscleId: params.muscleId,
-      perPage: 25,
+      perPage: 10,
     });
 
   const subtitle = params.muscleName && params.muscleId

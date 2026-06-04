@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import type { Exercise, ExerciseFilters } from '@/interfaces/exercise';
+import type { PaginationMeta } from '@/interfaces/muscle';
 import { fetchExercises } from '@/services';
 
 export function useExercises(filters: ExerciseFilters = {}) {
   const [items, setItems] = useState<Exercise[]>([]);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,9 +18,10 @@ export function useExercises(filters: ExerciseFilters = {}) {
         muscleId: filters.muscleId,
         search: filters.search,
         page: filters.page,
-        perPage: filters.perPage ?? 100,
+        perPage: filters.perPage ?? 10,
       });
       setItems(response.items);
+      setMeta(response.meta ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No pudimos cargar los ejercicios.');
     } finally {
@@ -51,6 +54,7 @@ export function useExercises(filters: ExerciseFilters = {}) {
 
   return {
     items,
+    meta,
     loading,
     refreshing,
     error,

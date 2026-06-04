@@ -29,7 +29,7 @@ export default function UsersScreen() {
   const [view, setView] = useState<UsersView>('users');
   const role = view === 'admins' ? 'admin' : 'user';
   const { items, loading, refreshing, error, refresh, retry, loadMore, hasMore } =
-    useAdminUsers(debouncedSearch, 12, role);
+    useAdminUsers(debouncedSearch, 10, role);
 
   const createLabel = view === 'admins' ? 'Crear admin' : 'Crear usuario';
   const emptyTitle = view === 'admins' ? 'Sin administradores' : 'Sin usuarios';

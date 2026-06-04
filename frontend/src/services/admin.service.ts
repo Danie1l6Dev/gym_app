@@ -121,9 +121,9 @@ export async function syncAdminExercises(token?: string | null) {
 
 export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
   const [usersPage, membershipsPages, expiringPage] = await Promise.all([
-    fetchAdminUsersPage({ perPage: 1 }),
+    fetchAdminUsersPage({ perPage: 10 }),
     fetchAllMemberships(),
-    fetchUpcomingMembershipsPage({ perPage: 100, days: 30 }),
+    fetchUpcomingMembershipsPage({ perPage: 10, days: 30 }),
   ]);
 
   const activeMemberships = membershipsPages.items.filter((membership) => membership.status === 'active').length;
@@ -140,7 +140,7 @@ export async function fetchAdminDashboard(): Promise<AdminDashboardData> {
 }
 
 async function fetchAllMemberships() {
-  const firstPage = await fetchAdminMembershipsPage({ perPage: 100, page: 1 });
+  const firstPage = await fetchAdminMembershipsPage({ perPage: 10, page: 1 });
   const lastPage = firstPage.meta?.last_page ?? 1;
 
   if (lastPage <= 1) {
@@ -150,7 +150,7 @@ async function fetchAllMemberships() {
   const pages = [firstPage.items];
 
   for (let page = 2; page <= lastPage; page += 1) {
-    const response = await fetchAdminMembershipsPage({ perPage: 100, page });
+    const response = await fetchAdminMembershipsPage({ perPage: 10, page });
     pages.push(response.items);
   }
 

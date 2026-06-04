@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { AdminMembership } from '@/interfaces/admin';
 import { fetchAdminMemberships } from '@/services';
 
-export function useAdminMemberships(perPage = 15) {
+export function useAdminMemberships(perPage = 10) {
   const [items, setItems] = useState<AdminMembership[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
