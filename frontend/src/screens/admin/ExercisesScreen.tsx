@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -41,6 +42,7 @@ export default function ExercisesScreen() {
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [translationNoticeVisible, setTranslationNoticeVisible] = useState(false);
 
   const summary = useMemo(
     () => [
@@ -84,6 +86,7 @@ export default function ExercisesScreen() {
     setSyncing(true);
     setSyncError(null);
     setSyncMessage(null);
+    setTranslationNoticeVisible(false);
 
     try {
       const response = await syncAdminExercises(token);
@@ -95,6 +98,13 @@ export default function ExercisesScreen() {
           `Creados: ${data.created ?? 0} · Actualizados: ${data.updated ?? 0} · Omitidos: ${data.omitted ?? 0}`
         );
       }
+      if (
+        ! (Array.isArray(data.errors) && data.errors.length > 0)
+        && ((data.created ?? 0) > 0 || (data.updated ?? 0) > 0)
+      ) {
+        setTranslationNoticeVisible(true);
+      }
+
       await refresh();
       scrollToTop();
     } catch (error) {
@@ -343,6 +353,59 @@ export default function ExercisesScreen() {
 
   return (
     <ScreenContainer scrollable={false}>
+      <Modal visible={translationNoticeVisible} animationType="slide" transparent>
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.35)' }]}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+            ]}>
+            <View style={styles.modalHeader}>
+              <TextBlock variant="title">Traducción en progreso</TextBlock>
+              <Pressable onPress={() => setTranslationNoticeVisible(false)}>
+                <TextBlock variant="button" color="primary">
+                  Cerrar
+                </TextBlock>
+              </Pressable>
+            </View>
+
+            <TextBlock variant="body" color="muted">
+              La sincronización terminó correctamente. Las instrucciones en español se están
+              generando en segundo plano.
+            </TextBlock>
+
+            <TextBlock variant="caption" color="subtle">
+              Durante unos momentos algunos ejercicios pueden seguir apareciendo en inglés. No hace
+              falta volver a sincronizar.
+            </TextBlock>
+
+            {syncMessage ? (
+              <View
+                style={[
+                  styles.modalSummary,
+                  { backgroundColor: theme.colors.backgroundSoft, borderColor: theme.colors.border },
+                ]}>
+                <TextBlock variant="caption" color="primary">
+                  {syncMessage}
+                </TextBlock>
+              </View>
+            ) : null}
+
+            <Pressable
+              onPress={() => setTranslationNoticeVisible(false)}
+              style={({ pressed }) => [
+                styles.modalPrimaryButton,
+                { backgroundColor: theme.colors.primary },
+                pressed && styles.pressed,
+              ]}>
+              <TextBlock variant="button" style={styles.modalPrimaryButtonLabel}>
+                Entendido
+              </TextBlock>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       <FlatList
         ref={listRef}
         style={styles.list}
@@ -495,5 +558,38 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.7,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 20,
+    gap: 14,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalSummary: {
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  modalPrimaryButton: {
+    minHeight: 46,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalPrimaryButtonLabel: {
+    color: '#061018',
   },
 });

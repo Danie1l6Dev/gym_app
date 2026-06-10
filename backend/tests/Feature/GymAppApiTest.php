@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\TranslateExerciseJob;
 use App\Models\Exercise;
 use App\Models\Membership;
 use App\Models\Muscle;
@@ -10,8 +11,10 @@ use App\Models\Routine;
 use App\Models\User;
 use App\Services\Exercises\ExerciseDbSyncService;
 use App\Services\Exercises\ExternalExerciseApiClient;
+use App\Services\Translation\LibreTranslateClient;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class GymAppApiTest extends TestCase
@@ -328,7 +331,9 @@ class GymAppApiTest extends TestCase
         $client = new class extends ExternalExerciseApiClient
         {
             public int $musclesCalls = 0;
+
             public int $bodyPartsCalls = 0;
+
             public array $exerciseQueries = [];
 
             public function fetchMuscles(): array
@@ -404,6 +409,347 @@ class GymAppApiTest extends TestCase
         $this->assertSame(1, Exercise::query()->where('external_id', 'incline-bench-press')->count());
         $exercise->refresh();
         $this->assertSame('exercise_db_v2', $exercise->source);
+    }
+
+    public function test_translate_exercise_job_translates_instructions_without_touching_names(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $exercise = $this->createExercise();
+        $exercise->forceFill([
+            'name_original' => 'Bench Press',
+            'name_es' => 'Press de banca',
+            'instructions_original' => [
+                'Lie on a flat bench.',
+                'Press the bar upward.',
+            ],
+            'instructions_es' => null,
+            'description_es' => null,
+        ])->save();
+
+        $translator = new class extends LibreTranslateClient
+        {
+            public function translateMany(array $texts, string $source = 'en', string $target = 'es'): array
+            {
+                return array_map(fn (string $text) => 'ES: '.$text, $texts);
+            }
+        };
+
+        (new TranslateExerciseJob($exercise->id))->handle($translator);
+
+        $exercise->refresh();
+
+        $this->assertSame('Bench Press', $exercise->name_original);
+        $this->assertSame('Press de banca', $exercise->name_es);
+        $this->assertSame([
+            'ES: Lie on a flat bench.',
+            'ES: Press the bar upward.',
+        ], $exercise->instructions_es);
+    }
+
+    public function test_translate_exercise_job_can_force_retranslation_when_spanish_already_exists(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $exercise = $this->createExercise();
+        $exercise->forceFill([
+            'instructions_original' => [
+                'Updated step one.',
+                'Updated step two.',
+            ],
+            'instructions_es' => [
+                'Traducción vieja uno.',
+                'Traducción vieja dos.',
+            ],
+            'description_es' => 'Traducción vieja uno.'.PHP_EOL.'Traducción vieja dos.',
+        ])->save();
+
+        $translator = new class extends LibreTranslateClient
+        {
+            public function translateMany(array $texts, string $source = 'en', string $target = 'es'): array
+            {
+                return array_map(fn (string $text) => 'ES NUEVO: '.$text, $texts);
+            }
+        };
+
+        (new TranslateExerciseJob($exercise->id, true))->handle($translator);
+
+        $exercise->refresh();
+
+        $this->assertSame([
+            'ES NUEVO: Updated step one.',
+            'ES NUEVO: Updated step two.',
+        ], $exercise->instructions_es);
+    }
+
+    public function test_sync_dispatches_translation_jobs_only_for_records_missing_spanish_instructions(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        Queue::fake();
+        $muscle = Muscle::query()->updateOrCreate(
+            ['slug' => 'pectorals'],
+            [
+                'name_en' => 'Pectorals',
+                'name_es' => 'Pectorales',
+            ]
+        );
+
+        Exercise::query()->updateOrCreate(
+            ['external_id' => 'already-translated'],
+            [
+                'muscle_id' => $muscle->id,
+                'source' => 'exercise_db_v1',
+                'name_original' => 'Already Translated',
+                'name_es' => null,
+                'body_part' => 'chest',
+                'target_muscle' => 'pectorals',
+                'secondary_muscles' => ['triceps'],
+                'equipment' => ['barbell'],
+                'gif_url' => null,
+                'instructions_original' => ['Original step'],
+                'instructions_es' => ['Paso traducido'],
+                'raw_payload' => ['exerciseId' => 'already-translated'],
+                'synced_at' => now(),
+                'name_en' => 'Already Translated',
+                'description_en' => 'Original step',
+                'description_es' => 'Paso traducido',
+            ]
+        );
+
+        Exercise::query()->updateOrCreate(
+            ['external_id' => 'needs-translation'],
+            [
+                'muscle_id' => $muscle->id,
+                'source' => 'exercise_db_v1',
+                'name_original' => 'Needs Translation',
+                'name_es' => null,
+                'body_part' => 'chest',
+                'target_muscle' => 'pectorals',
+                'secondary_muscles' => ['triceps'],
+                'equipment' => ['barbell'],
+                'gif_url' => null,
+                'instructions_original' => ['Original step'],
+                'instructions_es' => null,
+                'raw_payload' => ['exerciseId' => 'needs-translation'],
+                'synced_at' => now(),
+                'name_en' => 'Needs Translation',
+                'description_en' => 'Original step',
+                'description_es' => null,
+            ]
+        );
+
+        $client = new class extends ExternalExerciseApiClient
+        {
+            public function fetchMuscles(): array
+            {
+                return [['name' => 'pectorals']];
+            }
+
+            public function fetchBodyParts(): array
+            {
+                return [['name' => 'chest']];
+            }
+
+            public function fetchExercises(array $query = []): array
+            {
+                return [
+                    'items' => [
+                        [
+                            'exerciseId' => 'already-translated',
+                            'name' => 'Already Translated',
+                            'bodyParts' => ['chest'],
+                            'targetMuscles' => ['pectorals'],
+                            'secondaryMuscles' => ['triceps'],
+                            'equipments' => ['barbell'],
+                            'instructions' => ['Original step'],
+                            'instructions_es' => ['Paso traducido'],
+                        ],
+                        [
+                            'exerciseId' => 'needs-translation',
+                            'name' => 'Needs Translation',
+                            'bodyParts' => ['chest'],
+                            'targetMuscles' => ['pectorals'],
+                            'secondaryMuscles' => ['triceps'],
+                            'equipments' => ['barbell'],
+                            'instructions' => ['Original step'],
+                        ],
+                        [
+                            'exerciseId' => 'brand-new',
+                            'name' => 'Brand New',
+                            'bodyParts' => ['chest'],
+                            'targetMuscles' => ['pectorals'],
+                            'secondaryMuscles' => ['triceps'],
+                            'equipments' => ['barbell'],
+                            'instructions' => ['New original step'],
+                        ],
+                    ],
+                    'meta' => ['nextCursor' => null],
+                ];
+            }
+        };
+
+        $service = new ExerciseDbSyncService($client);
+        $service->sync();
+
+        Queue::assertPushed(TranslateExerciseJob::class, 2);
+        Queue::assertPushed(TranslateExerciseJob::class, function (TranslateExerciseJob $job): bool {
+            return Exercise::query()->find($job->exerciseId)?->external_id === 'needs-translation';
+        });
+        Queue::assertPushed(TranslateExerciseJob::class, function (TranslateExerciseJob $job): bool {
+            return Exercise::query()->find($job->exerciseId)?->external_id === 'brand-new';
+        });
+    }
+
+    public function test_sync_preserves_existing_spanish_instructions_when_source_does_not_send_them(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        Queue::fake();
+
+        $muscle = Muscle::query()->updateOrCreate(
+            ['slug' => 'pectorals'],
+            [
+                'name_en' => 'Pectorals',
+                'name_es' => 'Pectorales',
+            ]
+        );
+
+        $exercise = Exercise::query()->updateOrCreate(
+            ['external_id' => 'preserve-translation'],
+            [
+                'muscle_id' => $muscle->id,
+                'source' => 'exercise_db_v1',
+                'name_original' => 'Preserve Translation',
+                'name_es' => null,
+                'body_part' => 'chest',
+                'target_muscle' => 'pectorals',
+                'secondary_muscles' => ['triceps'],
+                'equipment' => ['barbell'],
+                'gif_url' => null,
+                'instructions_original' => ['Original step'],
+                'instructions_es' => ['Paso traducido'],
+                'raw_payload' => ['exerciseId' => 'preserve-translation'],
+                'synced_at' => now(),
+                'name_en' => 'Preserve Translation',
+                'description_en' => 'Original step',
+                'description_es' => 'Paso traducido',
+            ]
+        );
+
+        $client = new class extends ExternalExerciseApiClient
+        {
+            public function fetchMuscles(): array
+            {
+                return [['name' => 'pectorals']];
+            }
+
+            public function fetchBodyParts(): array
+            {
+                return [['name' => 'chest']];
+            }
+
+            public function fetchExercises(array $query = []): array
+            {
+                return [
+                    'items' => [
+                        [
+                            'exerciseId' => 'preserve-translation',
+                            'name' => 'Preserve Translation',
+                            'bodyParts' => ['chest'],
+                            'targetMuscles' => ['pectorals'],
+                            'secondaryMuscles' => ['triceps'],
+                            'equipments' => ['barbell'],
+                            'instructions' => ['Original step'],
+                        ],
+                    ],
+                    'meta' => ['nextCursor' => null],
+                ];
+            }
+        };
+
+        $service = new ExerciseDbSyncService($client);
+        $result = $service->sync();
+
+        $exercise->refresh();
+
+        $this->assertSame(0, $result['updated']);
+        $this->assertSame(['Paso traducido'], $exercise->instructions_es);
+        $this->assertSame('Paso traducido', $exercise->description_es);
+        Queue::assertNotPushed(TranslateExerciseJob::class);
+    }
+
+    public function test_sync_dispatches_forced_retranslation_when_original_instructions_change(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        Queue::fake();
+
+        $muscle = Muscle::query()->updateOrCreate(
+            ['slug' => 'pectorals'],
+            [
+                'name_en' => 'Pectorals',
+                'name_es' => 'Pectorales',
+            ]
+        );
+
+        Exercise::query()->updateOrCreate(
+            ['external_id' => 'needs-refresh'],
+            [
+                'muscle_id' => $muscle->id,
+                'source' => 'exercise_db_v1',
+                'name_original' => 'Needs Refresh',
+                'name_es' => null,
+                'body_part' => 'chest',
+                'target_muscle' => 'pectorals',
+                'secondary_muscles' => ['triceps'],
+                'equipment' => ['barbell'],
+                'gif_url' => null,
+                'instructions_original' => ['Old step'],
+                'instructions_es' => ['Paso viejo'],
+                'raw_payload' => ['exerciseId' => 'needs-refresh'],
+                'synced_at' => now(),
+                'name_en' => 'Needs Refresh',
+                'description_en' => 'Old step',
+                'description_es' => 'Paso viejo',
+            ]
+        );
+
+        $client = new class extends ExternalExerciseApiClient
+        {
+            public function fetchMuscles(): array
+            {
+                return [['name' => 'pectorals']];
+            }
+
+            public function fetchBodyParts(): array
+            {
+                return [['name' => 'chest']];
+            }
+
+            public function fetchExercises(array $query = []): array
+            {
+                return [
+                    'items' => [
+                        [
+                            'exerciseId' => 'needs-refresh',
+                            'name' => 'Needs Refresh',
+                            'bodyParts' => ['chest'],
+                            'targetMuscles' => ['pectorals'],
+                            'secondaryMuscles' => ['triceps'],
+                            'equipments' => ['barbell'],
+                            'instructions' => ['New step'],
+                        ],
+                    ],
+                    'meta' => ['nextCursor' => null],
+                ];
+            }
+        };
+
+        $service = new ExerciseDbSyncService($client);
+        $service->sync();
+
+        Queue::assertPushed(TranslateExerciseJob::class, function (TranslateExerciseJob $job): bool {
+            return Exercise::query()->find($job->exerciseId)?->external_id === 'needs-refresh'
+                && $job->force === true;
+        });
     }
 
     private function createExercise(): Exercise

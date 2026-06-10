@@ -53,4 +53,9 @@ return [
         'verify_ssl' => env('EXERCISE_DB_VERIFY_SSL', false),
     ],
 
+    'libretranslate' => [
+        'url' => env('LIBRETRANSLATE_URL', 'http://localhost:5000'),
+        'timeout' => env('LIBRETRANSLATE_TIMEOUT', 30),
+    ],
+
 ];

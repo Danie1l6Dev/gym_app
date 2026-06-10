@@ -2,9 +2,11 @@
 
 namespace App\Services\Exercises;
 
+use App\Jobs\TranslateExerciseJob;
 use App\Models\Exercise;
 use App\Models\Muscle;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
@@ -12,12 +14,12 @@ use Throwable;
 class ExerciseDbSyncService
 {
     private const UPSERT_BATCH_SIZE = 250;
+
     private const PAGE_DELAY_US = 750000;
 
     public function __construct(
         private readonly ExternalExerciseApiClient $client,
-    ) {
-    }
+    ) {}
 
     public function sync(): array
     {
@@ -89,19 +91,27 @@ class ExerciseDbSyncService
             ->keyBy('external_id');
 
         $rowsToUpsert = [];
+        $translationCandidates = [];
         $now = now()->toDateTimeString();
 
         foreach ($normalizedExercises as $externalId => $attributes) {
             $exercise = $existingExercises->get($externalId);
+            $attributes = $this->mergeLocalizedAttributes($exercise, $attributes);
 
             if ($exercise === null) {
                 $summary['created']++;
+                $translationCandidates[$externalId] = false;
             } elseif ($this->isSameExercise($exercise, $attributes)) {
                 $summary['omitted']++;
+
+                if ($this->needsInstructionsTranslation($exercise)) {
+                    $translationCandidates[$externalId] = false;
+                }
 
                 continue;
             } else {
                 $summary['updated']++;
+                $translationCandidates[$externalId] = $this->shouldRefreshInstructionsTranslation($exercise, $attributes);
             }
 
             $rowsToUpsert[] = $this->prepareExerciseRowForUpsert(
@@ -114,6 +124,8 @@ class ExerciseDbSyncService
         foreach (array_chunk($rowsToUpsert, self::UPSERT_BATCH_SIZE) as $batch) {
             Exercise::query()->upsert($batch, ['external_id'], $this->exerciseUpsertColumns());
         }
+
+        $this->dispatchInstructionTranslations($translationCandidates);
 
         return $summary;
     }
@@ -156,7 +168,7 @@ class ExerciseDbSyncService
     }
 
     /**
-     * @param array<int, array<string, mixed>> $muscles
+     * @param  array<int, array<string, mixed>>  $muscles
      */
     private function syncMuscles(array $muscles): void
     {
@@ -449,8 +461,7 @@ class ExerciseDbSyncService
     }
 
     /**
-     * @param array<string, mixed> $attributes
-     *
+     * @param  array<string, mixed>  $attributes
      * @return array<string, mixed>
      */
     private function prepareExerciseRowForUpsert(array $attributes, mixed $createdAt, string $updatedAt): array
@@ -557,5 +568,111 @@ class ExerciseDbSyncService
     private function buildErrorMessage(string $message, Throwable $throwable): string
     {
         return sprintf('%s %s', $message, $throwable->getMessage());
+    }
+
+    /**
+     * @param  array<int, string>  $externalIds
+     */
+    private function dispatchInstructionTranslations(array $externalIds): void
+    {
+        $translationMap = [];
+
+        foreach ($externalIds as $externalId => $force) {
+            if (! is_string($externalId) || trim($externalId) === '') {
+                continue;
+            }
+
+            $translationMap[$externalId] = (bool) $force;
+        }
+
+        if ($translationMap === []) {
+            return;
+        }
+
+        try {
+            Exercise::query()
+                ->whereIn('external_id', array_keys($translationMap))
+                ->get()
+                ->filter(function (Exercise $exercise) use ($translationMap): bool {
+                    $force = $translationMap[$exercise->external_id] ?? false;
+
+                    return $force || $this->needsInstructionsTranslation($exercise);
+                })
+                ->each(function (Exercise $exercise) use ($translationMap): void {
+                    TranslateExerciseJob::dispatch(
+                        $exercise->id,
+                        $translationMap[$exercise->external_id] ?? false
+                    );
+                });
+        } catch (Throwable $throwable) {
+            Log::error('Exercise translation dispatch failed.', [
+                'external_ids' => array_keys($translationMap),
+                'exception' => $throwable,
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    private function mergeLocalizedAttributes(?Exercise $exercise, array $attributes): array
+    {
+        if ($exercise === null) {
+            return $attributes;
+        }
+
+        if ($this->normalizeInstructionList($attributes['instructions_es'] ?? null) === []) {
+            $attributes['instructions_es'] = $exercise->instructions_es;
+            $attributes['description_es'] = $exercise->description_es;
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function shouldRefreshInstructionsTranslation(Exercise $exercise, array $attributes): bool
+    {
+        $currentOriginal = $this->normalizeInstructionList($exercise->instructions_original);
+        $incomingOriginal = $this->normalizeInstructionList($attributes['instructions_original'] ?? null);
+
+        if ($incomingOriginal === []) {
+            return false;
+        }
+
+        return $this->normalizeInstructionList($exercise->instructions_es) === []
+            || ! $this->valuesAreEquivalent($currentOriginal, $incomingOriginal);
+    }
+
+    private function needsInstructionsTranslation(Exercise $exercise): bool
+    {
+        return $this->normalizeInstructionList($exercise->instructions_original) !== []
+            && $this->normalizeInstructionList($exercise->instructions_es) === [];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function normalizeInstructionList(mixed $value): array
+    {
+        if (is_string($value)) {
+            $trimmed = trim($value);
+
+            return $trimmed !== '' ? [$trimmed] : [];
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return Collection::make($value)
+            ->flatten()
+            ->filter(fn ($item) => is_string($item) || is_numeric($item))
+            ->map(fn ($item) => trim((string) $item))
+            ->filter()
+            ->values()
+            ->all();
     }
 }
