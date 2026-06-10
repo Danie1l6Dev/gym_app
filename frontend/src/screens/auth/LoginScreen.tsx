@@ -27,7 +27,7 @@ export default function LoginScreen() {
   const { login } = useAuth();
   const isWide = width >= 900;
 
-  const [email, setEmail] = useState('entrenador@gympontepinuo.com');
+  const [email, setEmail] = useState('user#@gymapp.com');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -158,7 +158,7 @@ export default function LoginScreen() {
                   keyboardType="email-address"
                   onBlur={() => setFocusedField(null)}
                   onFocus={() => setFocusedField('email')}
-                  placeholder="entrenador@gympontepinuo.com"
+                  placeholder="user#@gymapp.com"
                   placeholderTextColor="#5F6670"
                   value={email}
                   onChangeText={setEmail}
