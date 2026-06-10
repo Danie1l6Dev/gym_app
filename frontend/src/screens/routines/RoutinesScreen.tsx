@@ -1,13 +1,11 @@
 import { Alert, router } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   FlatList,
-  Modal,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -290,8 +288,6 @@ export default function RoutinesScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <CrearRutinaModal visible={modalVisible} onClose={() => setModalVisible(false)} />
-
       <TopBar />
 
       <FlatList
@@ -310,7 +306,7 @@ export default function RoutinesScreen() {
                 <Text style={styles.greeting}>Explora recomendaciones y tus rutinas personales.</Text>
               </View>
               <Pressable
-                onPress={() => setModalVisible(true)}
+                onPress={() => router.push(ROUTES.app.routineCreate)}
                 style={({ hovered }) => [
                   styles.createBtn,
                   {
