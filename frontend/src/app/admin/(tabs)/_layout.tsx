@@ -75,6 +75,15 @@ export default function AdminTabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="manage"
+        options={{
+          title: ADMIN_TAB_ITEMS[5].label,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="cog-outline" size={size ?? 22} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

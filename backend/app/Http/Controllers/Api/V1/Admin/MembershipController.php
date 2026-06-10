@@ -17,7 +17,7 @@ class MembershipController extends Controller
         $filters = $request->validated();
 
         $memberships = Membership::query()
-            ->with('user')
+            ->with(['user', 'type'])
             ->latest()
             ->paginate($filters['per_page'] ?? 15);
 
@@ -32,7 +32,7 @@ class MembershipController extends Controller
         $days = (int) ($filters['days'] ?? 30);
 
         $memberships = Membership::query()
-            ->with('user')
+            ->with(['user', 'type'])
             ->where('status', 'active')
             ->whereBetween('ends_at', [now()->toDateString(), now()->addDays($days)->toDateString()])
             ->orderBy('ends_at')
@@ -47,7 +47,7 @@ class MembershipController extends Controller
     {
         $membership = Membership::create($request->validated());
 
-        return MembershipResource::make($membership->load('user'))
+        return MembershipResource::make($membership->load(['user', 'type']))
             ->additional(['message' => 'Membresía creada correctamente.'])
             ->response()
             ->setStatusCode(201);
@@ -57,7 +57,7 @@ class MembershipController extends Controller
     {
         $membership->update($request->validated());
 
-        return MembershipResource::make($membership->load('user'))
+        return MembershipResource::make($membership->load(['user', 'type']))
             ->additional(['message' => 'Membresía actualizada correctamente.'])
             ->response();
     }

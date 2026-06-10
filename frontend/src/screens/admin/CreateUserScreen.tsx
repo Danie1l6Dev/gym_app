@@ -1,13 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
-import { ADMIN_ROLE_OPTIONS, DIMENSIONS, MEMBERSHIP_PLAN_OPTIONS, ROUTES } from '@/constants';
-import { useCreateUser } from '@/hooks';
+import { ADMIN_ROLE_OPTIONS, DIMENSIONS, ROUTES } from '@/constants';
+import { useCreateUser, useMembershipTypes } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
 
 type FieldKey = 'name' | 'username' | 'email' | 'password' | 'passwordConfirmation';
@@ -60,10 +60,15 @@ export default function CreateUserScreen() {
     passwordConfirmation: '',
   });
   const [roleSlug, setRoleSlug] = useState<'admin' | 'user'>(() => roleSlugFromParams(params.role));
-  const [membershipPlanType, setMembershipPlanType] = useState<(typeof MEMBERSHIP_PLAN_OPTIONS)[number]['value']>('monthly');
+  const [membershipPlanType, setMembershipPlanType] = useState('monthly');
   const [membershipEndsAt, setMembershipEndsAt] = useState(createDefaultEndDate());
   const [membershipNotes, setMembershipNotes] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const { items: membershipTypes } = useMembershipTypes();
+  const activeMembershipTypes = useMemo(
+    () => membershipTypes.filter((membershipType) => membershipType.is_active),
+    [membershipTypes]
+  );
   const isUserRole = roleSlug === 'user';
   const subjectLabel = isUserRole ? 'usuario' : 'administrador';
 
@@ -81,13 +86,27 @@ export default function CreateUserScreen() {
       }
 
       if (isUserRole) {
-        return Boolean(membershipPlanType && membershipEndsAt.trim());
+        return Boolean(membershipPlanType && membershipEndsAt.trim() && activeMembershipTypes.length > 0);
       }
 
       return true;
     },
-    [isUserRole, membershipEndsAt, membershipPlanType, values]
+    [activeMembershipTypes.length, isUserRole, membershipEndsAt, membershipPlanType, values]
   );
+
+  useEffect(() => {
+    if (!isUserRole || activeMembershipTypes.length === 0) {
+      return;
+    }
+
+    const currentPlanExists = activeMembershipTypes.some(
+      (membershipType) => membershipType.code === membershipPlanType
+    );
+
+    if (!currentPlanExists) {
+      setMembershipPlanType(activeMembershipTypes[0].code);
+    }
+  }, [activeMembershipTypes, isUserRole, membershipPlanType]);
 
   function updateField(field: FieldKey, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -250,13 +269,13 @@ export default function CreateUserScreen() {
                   Plan
                 </TextBlock>
                 <View style={styles.planRow}>
-                  {MEMBERSHIP_PLAN_OPTIONS.map((option) => {
-                    const selected = membershipPlanType === option.value;
+                  {activeMembershipTypes.map((option) => {
+                    const selected = membershipPlanType === option.code;
 
                     return (
                       <Pressable
-                        key={option.value}
-                        onPress={() => setMembershipPlanType(option.value)}
+                        key={option.id}
+                        onPress={() => setMembershipPlanType(option.code)}
                         style={({ pressed }) => [
                           styles.planPill,
                           {
@@ -268,15 +287,20 @@ export default function CreateUserScreen() {
                           pressed && styles.pressed,
                         ]}>
                         <TextBlock variant="caption" color={selected ? 'primary' : 'muted'}>
-                          {option.label}
+                          {option.name}
                         </TextBlock>
                         <TextBlock variant="caption" color="subtle">
-                          {option.price.toLocaleString('es-CO')} COP
+                          {Number(option.price).toLocaleString('es-CO')} COP
                         </TextBlock>
                       </Pressable>
                     );
                   })}
                 </View>
+                {activeMembershipTypes.length === 0 ? (
+                  <TextBlock variant="caption" color="muted">
+                    No hay tipos de membresia activos. Crea uno desde Administrar.
+                  </TextBlock>
+                ) : null}
               </View>
 
               <View style={styles.field}>

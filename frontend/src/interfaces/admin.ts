@@ -50,7 +50,7 @@ export interface CreateUserPayload {
   weight?: number | null;
   profile_photo?: string | null;
   is_active?: boolean;
-  membership_plan_type?: 'weekly' | 'monthly' | null;
+  membership_plan_type?: string | null;
   membership_ends_at?: string | null;
   membership_notes?: string | null;
 }

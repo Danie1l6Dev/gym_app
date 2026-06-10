@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\Admin\ExerciseSyncController;
 use App\Http\Controllers\Api\V1\Admin\MembershipController;
+use App\Http\Controllers\Api\V1\Admin\MembershipTypeController;
 use App\Http\Controllers\Api\V1\Admin\UserController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ExerciseController;
@@ -42,11 +43,15 @@ Route::prefix('v1')->group(function (): void {
         Route::post('users', [UserController::class, 'store']);
         Route::get('users/{user}', [UserController::class, 'show']);
         Route::put('users/{user}', [UserController::class, 'update']);
+        Route::delete('users/{user}', [UserController::class, 'destroy']);
 
         Route::get('memberships', [MembershipController::class, 'index']);
         Route::post('memberships', [MembershipController::class, 'store']);
         Route::get('memberships/upcoming', [MembershipController::class, 'upcoming']);
         Route::put('memberships/{membership}', [MembershipController::class, 'update']);
+
+        Route::apiResource('membership-types', MembershipTypeController::class)
+            ->except(['create', 'edit']);
 
         Route::post('exercises/sync', [ExerciseSyncController::class, 'store']);
     });

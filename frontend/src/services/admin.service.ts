@@ -9,6 +9,7 @@ import type {
   AdminUsersQuery,
   CreateUserPayload,
 } from '@/interfaces/admin';
+import type { MembershipType, MembershipTypePayload } from '@/interfaces/membership-type';
 
 type Paginated<T> = {
   data?: T[];
@@ -111,6 +112,31 @@ export async function fetchExpiringMemberships(query: AdminMembershipsQuery = {}
   return fetchUpcomingMembershipsPage(query);
 }
 
+export async function fetchMembershipTypes() {
+  const response = await apiClient.get<Paginated<MembershipType>>('/api/v1/admin/membership-types');
+  return normalizeCollectionResponse(response.data);
+}
+
+export async function fetchMembershipTypeById(id: string | number) {
+  const response = await apiClient.get<Single<MembershipType>>(`/api/v1/admin/membership-types/${id}`);
+  return normalizeItemResponse(response.data);
+}
+
+export async function createMembershipType(payload: MembershipTypePayload) {
+  const response = await apiClient.post<Single<MembershipType>>('/api/v1/admin/membership-types', payload);
+  return normalizeItemResponse(response.data);
+}
+
+export async function updateMembershipType(id: string | number, payload: MembershipTypePayload) {
+  const response = await apiClient.put<Single<MembershipType>>(`/api/v1/admin/membership-types/${id}`, payload);
+  return normalizeItemResponse(response.data);
+}
+
+export async function deleteMembershipType(id: string | number) {
+  const response = await apiClient.delete<Single<MembershipType>>(`/api/v1/admin/membership-types/${id}`);
+  return normalizeItemResponse(response.data);
+}
+
 export async function syncAdminExercises(token?: string | null) {
   const response = await apiClient.post<Single<ExerciseSyncSummary>>('/api/v1/admin/exercises/sync', null, {
     timeout: 300000,
@@ -158,4 +184,56 @@ async function fetchAllMemberships() {
     ...firstPage,
     items: pages.flat(),
   };
+}
+
+// Delete operations
+export async function deleteAdminUser(id: string | number) {
+  const response = await apiClient.delete<Single<AdminUser>>(`/api/v1/admin/users/${id}`);
+  return normalizeItemResponse(response.data);
+}
+
+export async function deleteAdminMembership(id: string | number) {
+  const response = await apiClient.delete<Single<AdminMembership>>(`/api/v1/admin/memberships/${id}`);
+  return normalizeItemResponse(response.data);
+}
+
+export async function deleteExercise(id: string | number) {
+  const response = await apiClient.delete('/api/v1/exercises/' + id);
+  return normalizeItemResponse(response.data);
+}
+
+export async function deleteRoutine(id: string | number) {
+  const response = await apiClient.delete('/api/v1/routines/' + id);
+  return normalizeItemResponse(response.data);
+}
+
+// Create operations
+export async function createMembership(payload: any) {
+  const response = await apiClient.post<Single<AdminMembership>>('/api/v1/admin/memberships', payload);
+  return normalizeItemResponse(response.data);
+}
+
+export async function updateMembership(id: string | number, payload: any) {
+  const response = await apiClient.put<Single<AdminMembership>>(`/api/v1/admin/memberships/${id}`, payload);
+  return normalizeItemResponse(response.data);
+}
+
+export async function createExercise(payload: any) {
+  const response = await apiClient.post('/api/v1/exercises', payload);
+  return normalizeItemResponse(response.data);
+}
+
+export async function updateExercise(id: string | number, payload: any) {
+  const response = await apiClient.put('/api/v1/exercises/' + id, payload);
+  return normalizeItemResponse(response.data);
+}
+
+export async function createRoutine(payload: any) {
+  const response = await apiClient.post('/api/v1/routines', payload);
+  return normalizeItemResponse(response.data);
+}
+
+export async function updateRoutine(id: string | number, payload: any) {
+  const response = await apiClient.put('/api/v1/routines/' + id, payload);
+  return normalizeItemResponse(response.data);
 }

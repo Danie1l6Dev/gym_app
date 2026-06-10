@@ -13,10 +13,17 @@ type AppHeaderProps = {
   title: string;
   subtitle?: string;
   showBack?: boolean;
+  backHref?: string;
   rightElement?: ReactNode;
 };
 
-export function AppHeader({ title, subtitle, showBack = false, rightElement }: AppHeaderProps) {
+export function AppHeader({
+  title,
+  subtitle,
+  showBack = false,
+  backHref,
+  rightElement,
+}: AppHeaderProps) {
   const theme = useTheme();
 
   return (
@@ -25,7 +32,13 @@ export function AppHeader({ title, subtitle, showBack = false, rightElement }: A
         {showBack ? (
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Volver"
             onPress={() => {
+              if (backHref) {
+                router.replace(backHref as never);
+                return;
+              }
+
               if (typeof router.canGoBack === 'function' && router.canGoBack()) {
                 router.back();
                 return;

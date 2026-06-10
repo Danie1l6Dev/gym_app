@@ -15,7 +15,7 @@ class UpdateMembershipRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'plan_type' => ['sometimes', 'required', Rule::in(['weekly', 'monthly'])],
+            'plan_type' => ['sometimes', 'required', Rule::exists('membership_types', 'code')],
             'starts_at' => ['sometimes', 'required', 'date'],
             'ends_at' => ['sometimes', 'required', 'date'],
             'status' => ['sometimes', Rule::in(['active', 'expired', 'cancelled'])],

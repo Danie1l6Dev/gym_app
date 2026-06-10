@@ -29,7 +29,7 @@ class StoreUserRequest extends FormRequest
             'weight' => ['nullable', 'numeric', 'min:0'],
             'profile_photo' => ['nullable', 'string', 'max:255'],
             'is_active' => ['sometimes', 'boolean'],
-            'membership_plan_type' => ['nullable', 'required_if:role_slug,user', 'required_if:role_id,2', Rule::in(['weekly', 'monthly'])],
+            'membership_plan_type' => ['nullable', 'required_if:role_slug,user', 'required_if:role_id,2', Rule::exists('membership_types', 'code')],
             'membership_ends_at' => ['nullable', 'required_if:role_slug,user', 'required_if:role_id,2', 'date', 'after_or_equal:today'],
             'membership_notes' => ['nullable', 'string', 'max:1000'],
         ];

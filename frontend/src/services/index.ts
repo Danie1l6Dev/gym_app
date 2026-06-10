@@ -11,6 +11,7 @@ export {
 } from './routines.service';
 export {
   createAdminUser,
+  deleteAdminUser,
   fetchAdminDashboard,
   fetchAdminMemberships,
   fetchAdminUserById,

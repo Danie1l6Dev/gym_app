@@ -18,7 +18,8 @@ class UpdateUserRequest extends FormRequest
         $userId = $this->route('user')?->id;
 
         return [
-            'role_id' => ['sometimes', 'required', 'integer', Rule::exists('roles', 'id')],
+            'role_id' => ['sometimes', 'required_without:role_slug', 'integer', Rule::exists('roles', 'id')],
+            'role_slug' => ['sometimes', 'required_without:role_id', 'string', Rule::exists('roles', 'slug')],
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'username' => ['sometimes', 'nullable', 'string', 'max:50', Rule::unique('users', 'username')->ignore($userId)],
             'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($userId)],
