@@ -159,3 +159,55 @@ async function fetchAllMemberships() {
     items: pages.flat(),
   };
 }
+
+// Delete operations
+export async function deleteAdminUser(id: string | number) {
+  const response = await apiClient.delete<Single<AdminUser>>(`/api/v1/admin/users/${id}`);
+  return normalizeItemResponse(response.data);
+}
+
+export async function deleteAdminMembership(id: string | number) {
+  const response = await apiClient.delete<Single<AdminMembership>>(`/api/v1/admin/memberships/${id}`);
+  return normalizeItemResponse(response.data);
+}
+
+export async function deleteExercise(id: string | number) {
+  const response = await apiClient.delete('/api/v1/exercises/' + id);
+  return normalizeItemResponse(response.data);
+}
+
+export async function deleteRoutine(id: string | number) {
+  const response = await apiClient.delete('/api/v1/routines/' + id);
+  return normalizeItemResponse(response.data);
+}
+
+// Create operations
+export async function createMembership(payload: any) {
+  const response = await apiClient.post<Single<AdminMembership>>('/api/v1/admin/memberships', payload);
+  return normalizeItemResponse(response.data);
+}
+
+export async function updateMembership(id: string | number, payload: any) {
+  const response = await apiClient.put<Single<AdminMembership>>(`/api/v1/admin/memberships/${id}`, payload);
+  return normalizeItemResponse(response.data);
+}
+
+export async function createExercise(payload: any) {
+  const response = await apiClient.post('/api/v1/exercises', payload);
+  return normalizeItemResponse(response.data);
+}
+
+export async function updateExercise(id: string | number, payload: any) {
+  const response = await apiClient.put('/api/v1/exercises/' + id, payload);
+  return normalizeItemResponse(response.data);
+}
+
+export async function createRoutine(payload: any) {
+  const response = await apiClient.post('/api/v1/routines', payload);
+  return normalizeItemResponse(response.data);
+}
+
+export async function updateRoutine(id: string | number, payload: any) {
+  const response = await apiClient.put('/api/v1/routines/' + id, payload);
+  return normalizeItemResponse(response.data);
+}
