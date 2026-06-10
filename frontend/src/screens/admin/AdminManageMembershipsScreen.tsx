@@ -1,14 +1,5 @@
-import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import {
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  View,
-  Alert,
-} from 'react-native';
+import { Alert, FlatList, Platform, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
 import { EmptyState } from '@/components/EmptyState';
@@ -16,40 +7,60 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS, ROUTES } from '@/constants';
-import { useAdminMemberships } from '@/hooks';
+import { useMembershipTypes } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
-import type { AdminMembership } from '@/interfaces/admin';
-import { deleteAdminMembership } from '@/services/admin.service';
+import type { MembershipType } from '@/interfaces/membership-type';
+import { deleteMembershipType } from '@/services/admin.service';
+
+function formatPrice(value: string | number) {
+  const amount = Number(value);
+
+  if (Number.isNaN(amount)) {
+    return '$0';
+  }
+
+  return amount.toLocaleString('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  });
+}
 
 export default function AdminManageMembershipsScreen() {
   const theme = useTheme();
-  const { items, loading, refreshing, error, refresh, retry } = useAdminMemberships(50);
-  const [deleting, setDeleting] = useState<string | number | null>(null);
+  const { items, loading, refreshing, error, refresh, retry } = useMembershipTypes();
 
-  const handleDelete = (membership: AdminMembership) => {
+  const handleDelete = (membershipType: MembershipType) => {
+    const deleteType = async () => {
+      try {
+        await deleteMembershipType(membershipType.id);
+        await refresh();
+      } catch {
+        Alert.alert('Error', 'No se pudo eliminar el tipo de membresia.');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        `¿Deseas eliminar "${membershipType.name}"? Esta accion no se puede deshacer.`
+      );
+
+      if (confirmed) {
+        void deleteType();
+      }
+
+      return;
+    }
+
     Alert.alert(
-      'Eliminar membresía',
-      `¿Está seguro que desea eliminar la membresía de ${membership.user?.name}?`,
+      'Eliminar tipo de membresia',
+      `¿Deseas eliminar "${membershipType.name}"? Esta accion no se puede deshacer.`,
       [
-        {
-          text: 'Cancelar',
-          onPress: () => { },
-          style: 'cancel',
-        },
+        { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Eliminar',
-          onPress: async () => {
-            setDeleting(membership.id);
-            try {
-              await deleteAdminMembership(membership.id);
-              refresh();
-            } catch (err) {
-              Alert.alert('Error', 'No se pudo eliminar la membresía');
-            } finally {
-              setDeleting(null);
-            }
-          },
           style: 'destructive',
+          onPress: () => void deleteType(),
         },
       ]
     );
@@ -59,12 +70,12 @@ export default function AdminManageMembershipsScreen() {
     return (
       <ScreenContainer>
         <AppHeader
-          title="Membresías"
-          subtitle="Gestionar membresías del sistema"
+          title="Membresias"
+          subtitle="Tipos de membresia disponibles"
           showBack
           backHref={ROUTES.app.adminManage}
         />
-        <LoadingSpinner label="Cargando membresías" />
+        <LoadingSpinner label="Cargando tipos de membresia" />
       </ScreenContainer>
     );
   }
@@ -73,13 +84,13 @@ export default function AdminManageMembershipsScreen() {
     return (
       <ScreenContainer>
         <AppHeader
-          title="Membresías"
-          subtitle="Gestionar membresías del sistema"
+          title="Membresias"
+          subtitle="Tipos de membresia disponibles"
           showBack
           backHref={ROUTES.app.adminManage}
         />
         <EmptyState
-          title="Error al cargar"
+          title="No pudimos cargar las membresias"
           description={error}
           icon="alert-circle-outline"
           actionLabel="Reintentar"
@@ -100,20 +111,20 @@ export default function AdminManageMembershipsScreen() {
         ListHeaderComponent={
           <View style={styles.header}>
             <AppHeader
-              title="Membresías"
-              subtitle="Gestionar membresías del sistema"
+              title="Membresias"
+              subtitle="Tipos de membresia disponibles"
               showBack
               backHref={ROUTES.app.adminManage}
               rightElement={
                 <Pressable
-                  onPress={() => router.push('manage/memberships' as never)}
+                  onPress={() => router.push(ROUTES.app.adminManageMembershipCreate as never)}
                   style={({ pressed }) => [
                     styles.createButton,
                     { backgroundColor: theme.colors.primary },
                     pressed && styles.pressed,
                   ]}
                 >
-                  <TextBlock variant="button" style={styles.buttonLabel}>
+                  <TextBlock variant="button" style={styles.primaryButtonLabel}>
                     Nueva +
                   </TextBlock>
                 </Pressable>
@@ -122,56 +133,66 @@ export default function AdminManageMembershipsScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <View
-            style={[styles.membershipCard, { backgroundColor: theme.colors.surface }]}
-          >
-            <View style={styles.membershipInfo}>
-              <TextBlock variant="subtitle" style={styles.userName}>
-                {item.user?.name || 'Sin asignar'}
-              </TextBlock>
-              <TextBlock variant="body" color="muted">
-                {item.plan_label || item.plan_type}
-              </TextBlock>
-              <View style={styles.dates}>
-                <TextBlock variant="caption" color="muted">
-                  Inicia: {item.starts_at ? new Date(item.starts_at).toLocaleDateString() : 'N/A'}
-                </TextBlock>
-                <TextBlock variant="caption" color="muted">
-                  Vence: {item.ends_at ? new Date(item.ends_at).toLocaleDateString() : 'N/A'}
-                </TextBlock>
+          <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+            <View style={styles.cardInfo}>
+              <View style={styles.titleRow}>
+                <TextBlock variant="title">{item.name}</TextBlock>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    {
+                      backgroundColor: item.is_active
+                        ? `${theme.colors.primary}22`
+                        : theme.colors.backgroundSoft,
+                    },
+                  ]}
+                >
+                  <TextBlock variant="caption" color={item.is_active ? 'primary' : 'muted'}>
+                    {item.is_active ? 'Activa' : 'Inactiva'}
+                  </TextBlock>
+                </View>
               </View>
+
+              <TextBlock variant="body" color="muted">
+                {formatPrice(item.price)} · {item.duration_days} dias
+              </TextBlock>
+
+              {item.description ? (
+                <TextBlock variant="caption" color="subtle" numberOfLines={2}>
+                  {item.description}
+                </TextBlock>
+              ) : null}
             </View>
 
-            <View style={styles.membershipActions}>
+            <View style={styles.actions}>
               <Pressable
                 onPress={() =>
                   router.push({
-                    pathname: ROUTES.app.adminManageMemberships + '/[id]',
-                    params: { id: item.id },
+                    pathname: ROUTES.app.adminManageMembershipDetail,
+                    params: { id: String(item.id) },
                   } as never)
                 }
                 style={({ pressed }) => [
                   styles.actionButton,
                   { backgroundColor: theme.colors.primary },
-                  pressed && styles.actionButtonPressed,
+                  pressed && styles.pressed,
                 ]}
               >
-                <TextBlock variant="caption" style={styles.buttonLabel}>
+                <TextBlock variant="caption" style={styles.primaryButtonLabel}>
                   Editar
                 </TextBlock>
               </Pressable>
 
               <Pressable
                 onPress={() => handleDelete(item)}
-                disabled={deleting === item.id}
                 style={({ pressed }) => [
                   styles.actionButton,
-                  { backgroundColor: '#FF6B6B' },
-                  pressed && styles.actionButtonPressed,
+                  styles.deleteButton,
+                  pressed && styles.pressed,
                 ]}
               >
-                <TextBlock variant="caption" style={styles.buttonLabel}>
-                  {deleting === item.id ? 'Eliminando...' : 'Eliminar'}
+                <TextBlock variant="caption" style={styles.primaryButtonLabel}>
+                  Eliminar
                 </TextBlock>
               </Pressable>
             </View>
@@ -179,13 +200,11 @@ export default function AdminManageMembershipsScreen() {
         )}
         ListEmptyComponent={
           <EmptyState
-            title="Sin membresías"
-            description="No hay membresías registradas. Crea una nueva para comenzar."
+            title="Sin tipos de membresia"
+            description="Crea el primer tipo para usarlo al registrar usuarios."
             icon="card-off-outline"
-            actionLabel="Crear membresía"
-            onAction={() =>
-              router.push(ROUTES.app.adminManageMemberships + '/new' as never)
-            }
+            actionLabel="Crear membresia"
+            onAction={() => router.push(ROUTES.app.adminManageMembershipCreate as never)}
           />
         }
       />
@@ -211,40 +230,47 @@ const styles = StyleSheet.create({
     borderRadius: DIMENSIONS.chipRadius,
   },
   pressed: {
-    opacity: 0.7,
+    opacity: 0.75,
   },
-  buttonLabel: {
+  primaryButtonLabel: {
     color: '#fff',
   },
-  membershipCard: {
+  card: {
     marginHorizontal: DIMENSIONS.screenPadding,
     marginBottom: 12,
     borderRadius: DIMENSIONS.cardRadius,
     padding: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 14,
   },
-  membershipInfo: {
+  cardInfo: {
     flex: 1,
-  },
-  userName: {
-    marginBottom: 4,
-  },
-  dates: {
-    marginTop: 8,
-    gap: 4,
-  },
-  membershipActions: {
     gap: 8,
-    marginLeft: 12,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  statusBadge: {
+    borderRadius: DIMENSIONS.chipRadius,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  actions: {
+    gap: 8,
+    alignItems: 'flex-end',
   },
   actionButton: {
+    minWidth: 86,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: DIMENSIONS.chipRadius,
+    alignItems: 'center',
   },
-  actionButtonPressed: {
-    opacity: 0.7,
+  deleteButton: {
+    backgroundColor: '#FF6B6B',
   },
 });

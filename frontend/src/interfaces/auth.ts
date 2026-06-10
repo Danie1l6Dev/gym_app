@@ -22,6 +22,8 @@ export interface User {
     description?: string | null;
   } | null;
   avatarUrl?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface LoginRequest {

@@ -16,7 +16,7 @@ class StoreMembershipRequest extends FormRequest
     {
         return [
             'user_id' => ['required', 'integer', 'exists:users,id'],
-            'plan_type' => ['required', Rule::in(['weekly', 'monthly'])],
+            'plan_type' => ['required', Rule::exists('membership_types', 'code')],
             'starts_at' => ['required', 'date'],
             'ends_at' => ['required', 'date', 'after_or_equal:starts_at'],
             'status' => ['sometimes', Rule::in(['active', 'expired', 'cancelled'])],

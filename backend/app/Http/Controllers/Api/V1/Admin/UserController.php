@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\Admin\StoreUserRequest;
 use App\Http\Requests\Api\V1\Admin\UpdateUserRequest;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\Membership;
+use App\Models\MembershipType;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Support\Carbon;
@@ -103,7 +104,7 @@ class UserController extends Controller
     {
         $viewer = request()->user();
 
-        $relations = ['role', 'latestMembership', 'memberships'];
+        $relations = ['role', 'latestMembership.type', 'memberships.type'];
 
         if ($viewer?->id === $user->id) {
             $relations[] = 'routines.exercises.muscle';
@@ -121,6 +122,10 @@ class UserController extends Controller
         $data = $request->validated();
 
         $updates = [];
+
+        if (array_key_exists('role_slug', $data)) {
+            $updates['role_id'] = $this->resolveRoleId($data);
+        }
 
         foreach ([
             'role_id',
@@ -153,13 +158,21 @@ class UserController extends Controller
             ->response();
     }
 
+    public function destroy(User $user): JsonResponse
+    {
+        $user->delete();
+
+        return response()->json([
+            'data' => null,
+            'message' => 'Usuario eliminado correctamente.',
+        ]);
+    }
+
     private function resolveMembershipPrice(string $planType): float
     {
-        return match ($planType) {
-            'weekly' => 35000,
-            'monthly' => 120000,
-            default => 0,
-        };
+        return (float) (MembershipType::query()
+            ->where('code', $planType)
+            ->value('price') ?? 0);
     }
 
     private function resolveRoleId(array $data): int

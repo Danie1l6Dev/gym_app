@@ -13,11 +13,7 @@ class MembershipResource extends JsonResource
             'id' => $this->id,
             'user_id' => $this->user_id,
             'plan_type' => $this->plan_type,
-            'plan_label' => match ($this->plan_type) {
-                'weekly' => 'Semanal',
-                'monthly' => 'Mensual',
-                default => 'Plan',
-            },
+            'plan_label' => $this->whenLoaded('type', fn () => $this->type?->name, $this->plan_type),
             'starts_at' => $this->starts_at,
             'ends_at' => $this->ends_at,
             'status' => $this->status,
@@ -25,6 +21,7 @@ class MembershipResource extends JsonResource
             'paid_at' => $this->paid_at,
             'notes' => $this->notes,
             'user' => UserResource::make($this->whenLoaded('user')),
+            'type' => MembershipTypeResource::make($this->whenLoaded('type')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

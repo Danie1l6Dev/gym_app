@@ -7,6 +7,7 @@ import {
   StyleSheet,
   View,
   Alert,
+  Platform,
 } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
@@ -38,6 +39,30 @@ export default function AdminManageUsersScreen() {
   }, [search]);
 
   const handleDelete = (userId: string | number, userName: string) => {
+    const deleteUser = async () => {
+      setDeleting(userId);
+      try {
+        await deleteAdminUser(userId);
+        await refresh();
+      } catch (err) {
+        Alert.alert('Error', 'No se pudo eliminar el usuario');
+      } finally {
+        setDeleting(null);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        `¿Está seguro que desea eliminar a ${userName}? Esta acción no se puede deshacer.`
+      );
+
+      if (confirmed) {
+        void deleteUser();
+      }
+
+      return;
+    }
+
     Alert.alert(
       'Eliminar usuario',
       `¿Está seguro que desea eliminar a ${userName}? Esta acción no se puede deshacer.`,
@@ -49,17 +74,7 @@ export default function AdminManageUsersScreen() {
         },
         {
           text: 'Eliminar',
-          onPress: async () => {
-            setDeleting(userId);
-            try {
-              await deleteAdminUser(userId);
-              refresh();
-            } catch (err) {
-              Alert.alert('Error', 'No se pudo eliminar el usuario');
-            } finally {
-              setDeleting(null);
-            }
-          },
+          onPress: () => void deleteUser(),
           style: 'destructive',
         },
       ]
@@ -119,7 +134,7 @@ export default function AdminManageUsersScreen() {
               backHref={ROUTES.app.adminManage}
               rightElement={
                 <Pressable
-                  onPress={() => router.push('manage/users' as never)}
+                  onPress={() => router.push(ROUTES.app.adminManageUserCreate as never)}
                   style={({ pressed }) => [
                     styles.createButton,
                     { backgroundColor: theme.colors.primary },
@@ -157,7 +172,7 @@ export default function AdminManageUsersScreen() {
               <Pressable
                 onPress={() =>
                   router.push({
-                    pathname: ROUTES.app.adminUserDetail,
+                    pathname: ROUTES.app.adminManageUserDetail,
                     params: { id: item.id },
                   } as never)
                 }

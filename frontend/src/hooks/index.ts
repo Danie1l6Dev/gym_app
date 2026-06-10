@@ -12,5 +12,6 @@ export { useAdminDashboard } from './use-admin-dashboard';
 export { useAdminUsers } from './use-admin-users';
 export { useAdminUser } from './use-admin-user';
 export { useAdminMemberships } from './use-admin-memberships';
+export { useMembershipTypes } from './use-membership-types';
 export { useExpiringMemberships } from './use-expiring-memberships';
 export { useCreateUser } from './use-create-user';

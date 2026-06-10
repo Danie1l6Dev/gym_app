@@ -9,6 +9,7 @@ import type {
   AdminUsersQuery,
   CreateUserPayload,
 } from '@/interfaces/admin';
+import type { MembershipType, MembershipTypePayload } from '@/interfaces/membership-type';
 
 type Paginated<T> = {
   data?: T[];
@@ -109,6 +110,31 @@ export async function fetchAdminMemberships(query: AdminMembershipsQuery = {}) {
 
 export async function fetchExpiringMemberships(query: AdminMembershipsQuery = {}) {
   return fetchUpcomingMembershipsPage(query);
+}
+
+export async function fetchMembershipTypes() {
+  const response = await apiClient.get<Paginated<MembershipType>>('/api/v1/admin/membership-types');
+  return normalizeCollectionResponse(response.data);
+}
+
+export async function fetchMembershipTypeById(id: string | number) {
+  const response = await apiClient.get<Single<MembershipType>>(`/api/v1/admin/membership-types/${id}`);
+  return normalizeItemResponse(response.data);
+}
+
+export async function createMembershipType(payload: MembershipTypePayload) {
+  const response = await apiClient.post<Single<MembershipType>>('/api/v1/admin/membership-types', payload);
+  return normalizeItemResponse(response.data);
+}
+
+export async function updateMembershipType(id: string | number, payload: MembershipTypePayload) {
+  const response = await apiClient.put<Single<MembershipType>>(`/api/v1/admin/membership-types/${id}`, payload);
+  return normalizeItemResponse(response.data);
+}
+
+export async function deleteMembershipType(id: string | number) {
+  const response = await apiClient.delete<Single<MembershipType>>(`/api/v1/admin/membership-types/${id}`);
+  return normalizeItemResponse(response.data);
 }
 
 export async function syncAdminExercises(token?: string | null) {
