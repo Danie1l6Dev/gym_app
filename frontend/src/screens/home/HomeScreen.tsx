@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
+import { TopBar } from '@/components/TopBar';
 import { useExercises, useMuscles, useRoutines } from '@/hooks';
 import { useAuth } from '@/hooks/use-auth';
 import { ROUTES } from '@/constants';
@@ -92,27 +93,6 @@ function QuickCard({
   );
 }
 
-function TopBtn({ icon }: { icon: string }) {
-  return (
-    <Pressable
-      style={({ hovered }) => [
-        styles.topBtn,
-        {
-          backgroundColor: hovered ? 'rgba(139,92,246,0.1)' : 'transparent',
-          borderColor: hovered ? 'rgba(139,92,246,0.3)' : 'transparent',
-        },
-      ]}>
-      {({ hovered }) => (
-        <MaterialCommunityIcons
-          name={icon}
-          size={15}
-          color={hovered ? '#a78bfa' : 'rgba(255,255,255,0.3)'}
-        />
-      )}
-    </Pressable>
-  );
-}
-
 export default function HomeScreen() {
   const { user } = useAuth();
   const routines = useRoutines();
@@ -171,22 +151,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Top bar */}
-      <View style={styles.topBar}>
-        <View style={styles.topBarLeft}>
-          <View style={styles.logoBox}>
-            <MaterialCommunityIcons name="dumbbell" size={13} color="#a78bfa" />
-          </View>
-          <Text style={styles.topBarTitle}>GYM Ponte Piñuo</Text>
-        </View>
-        <View style={styles.topBarRight}>
-          <TopBtn icon={ICONS.Bell} />
-          <TopBtn icon={ICONS.Settings} />
-          <Pressable style={styles.logoutBtn}>
-            <Text style={styles.logoutText}>Salir</Text>
-          </Pressable>
-        </View>
-      </View>
+      <TopBar />
 
       <ScrollView
         style={styles.scroll}
@@ -243,66 +208,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#020204',
   },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 48,
-    height: 56,
-    backgroundColor: 'rgba(2,2,4,0.92)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(139,92,246,0.1)',
-  },
-  topBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  logoBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: 'rgba(109,40,217,0.2)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(139,92,246,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  topBarTitle: {
-    fontSize: 11,
-    fontFamily: TYPOGRAPHY.fonts.mono,
-    letterSpacing: 1.5,
-    color: 'rgba(167,139,250,0.8)',
-    textTransform: 'uppercase',
-  },
-  topBarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  topBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoutBtn: {
-    marginLeft: 8,
-    paddingVertical: 5,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    backgroundColor: 'rgba(139,92,246,0.1)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(139,92,246,0.28)',
-  },
-  logoutText: {
-    color: 'rgba(167,139,250,0.8)',
-    fontSize: 11,
-    fontFamily: TYPOGRAPHY.fonts.body,
-    letterSpacing: 0.4,
-  },
+
   scroll: {
     flex: 1,
   },
