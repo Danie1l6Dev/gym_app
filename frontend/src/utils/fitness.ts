@@ -2,12 +2,15 @@ import type { Exercise } from '@/interfaces/exercise';
 import type { Muscle } from '@/interfaces/muscle';
 
 export function getMuscleDisplayName(muscle: Muscle) {
-  return muscle.display_name ?? muscle.name_es ?? muscle.name_en ?? 'Músculo';
+  return muscle.display_name ?? muscle.name_es ?? muscle.name_en ?? 'Musculo';
 }
 
 export function getMuscleSubtext(muscle: Muscle) {
-  const parts = [muscle.name_es, muscle.name_en].filter(Boolean);
-  return parts.length > 0 ? parts.join(' · ') : muscle.slug ?? '';
+  const nameEs = muscle.name_es?.trim();
+  const nameEn = muscle.name_en?.trim();
+  const parts = [nameEs, nameEn && nameEn !== nameEs ? nameEn : null].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(' - ') : muscle.slug ?? '';
 }
 
 export function getExerciseDisplayName(exercise: Exercise) {

@@ -18,6 +18,7 @@ class MuscleController extends Controller
         $filters = $request->validated();
 
         $muscles = Muscle::query()
+            ->has('exercises')
             ->when(! empty($filters['search'] ?? null), function ($query) use ($filters): void {
                 $search = $filters['search'];
 
@@ -27,7 +28,8 @@ class MuscleController extends Controller
                         ->orWhere('slug', 'like', "%{$search}%");
                 });
             })
-            ->orderBy('name_en')
+            ->orderByRaw("COALESCE(NULLIF(name_es, ''), name_en)")
+            ->orderBy('id')
             ->paginate($filters['per_page'] ?? 15);
 
         return MuscleResource::collection($muscles)

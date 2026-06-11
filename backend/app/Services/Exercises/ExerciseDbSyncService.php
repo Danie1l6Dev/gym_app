@@ -3,6 +3,7 @@
 namespace App\Services\Exercises;
 
 use App\Jobs\TranslateExerciseJob;
+use App\Jobs\TranslateMuscleJob;
 use App\Models\Exercise;
 use App\Models\Muscle;
 use Illuminate\Support\Arr;
@@ -38,7 +39,6 @@ class ExerciseDbSyncService
         try {
             $muscles = $this->client->fetchMuscles();
             $bodyParts = $this->client->fetchBodyParts();
-            $this->syncMuscles($muscles);
             $summary['catalog']['muscles'] = count($muscles);
             $summary['catalog']['bodyparts'] = count($bodyParts);
             $payload = $this->fetchAllExercises();
@@ -125,6 +125,8 @@ class ExerciseDbSyncService
             Exercise::query()->upsert($batch, ['external_id'], $this->exerciseUpsertColumns());
         }
 
+        $this->deleteUnusedMuscles();
+        $this->dispatchMuscleTranslations();
         $this->dispatchInstructionTranslations($translationCandidates);
 
         return $summary;
@@ -165,30 +167,6 @@ class ExerciseDbSyncService
         } while ($cursor !== '');
 
         return $items;
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $muscles
-     */
-    private function syncMuscles(array $muscles): void
-    {
-        foreach ($muscles as $item) {
-            $name = $this->firstString($item, ['name']);
-
-            if ($name === null) {
-                continue;
-            }
-
-            $slug = Str::slug($name);
-
-            Muscle::query()->updateOrCreate(
-                ['slug' => $slug],
-                [
-                    'name_en' => $name,
-                    'name_es' => $name,
-                ]
-            );
-        }
     }
 
     private function normalizeItem(array $item): ?array
@@ -312,9 +290,37 @@ class ExerciseDbSyncService
 
         return Muscle::query()->create([
             'name_en' => $muscleName,
-            'name_es' => $muscleName,
+            'name_es' => null,
             'slug' => $slug,
         ]);
+    }
+
+    private function deleteUnusedMuscles(): void
+    {
+        Muscle::query()
+            ->doesntHave('exercises')
+            ->delete();
+    }
+
+    private function dispatchMuscleTranslations(): void
+    {
+        try {
+            Muscle::query()
+                ->where(function ($query): void {
+                    $query->whereNull('name_es')
+                        ->orWhere('name_es', '')
+                        ->orWhereColumn('name_es', 'name_en');
+                })
+                ->chunkById(100, function ($muscles): void {
+                    $muscles->each(function (Muscle $muscle): void {
+                        TranslateMuscleJob::dispatch($muscle->id);
+                    });
+                });
+        } catch (Throwable $throwable) {
+            Log::error('Muscle translation dispatch failed.', [
+                'exception' => $throwable,
+            ]);
+        }
     }
 
     private function firstString(array $payload, array $keys): ?string
@@ -445,7 +451,6 @@ class ExerciseDbSyncService
             'gif_url',
             'instructions_original',
             'instructions_es',
-            'raw_payload',
             'name_en',
             'description_en',
             'description_es',

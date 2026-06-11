@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\TranslateExerciseJob;
+use App\Jobs\TranslateMuscleJob;
 use App\Models\Exercise;
 use App\Models\Membership;
 use App\Models\Muscle;
@@ -15,6 +16,7 @@ use App\Services\Translation\LibreTranslateClient;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
+use RuntimeException;
 use Tests\TestCase;
 
 class GymAppApiTest extends TestCase
@@ -58,10 +60,11 @@ class GymAppApiTest extends TestCase
     public function test_public_catalog_endpoints_return_muscles_and_exercises(): void
     {
         $this->seed(DatabaseSeeder::class);
+        $this->createExercise();
 
         $this->getJson('/api/v1/muscles')
             ->assertOk()
-            ->assertJsonPath('data.0.slug', 'abs');
+            ->assertJsonPath('data.0.slug', 'chest');
 
         $this->getJson('/api/v1/exercises?search=press')
             ->assertOk()
@@ -409,6 +412,164 @@ class GymAppApiTest extends TestCase
         $this->assertSame(1, Exercise::query()->where('external_id', 'incline-bench-press')->count());
         $exercise->refresh();
         $this->assertSame('exercise_db_v2', $exercise->source);
+    }
+
+    public function test_exercise_sync_keeps_only_muscles_used_by_exercises(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $staleMuscle = Muscle::query()->create([
+            'name_en' => 'Hands',
+            'name_es' => 'Hands',
+            'slug' => 'hands',
+        ]);
+
+        $client = new class extends ExternalExerciseApiClient
+        {
+            public function fetchMuscles(): array
+            {
+                return [
+                    ['name' => 'hands'],
+                    ['name' => 'pectorals'],
+                    ['name' => 'biceps'],
+                ];
+            }
+
+            public function fetchBodyParts(): array
+            {
+                return [['name' => 'chest']];
+            }
+
+            public function fetchExercises(array $query = []): array
+            {
+                return [
+                    'items' => [
+                        [
+                            'exerciseId' => 'bench-press',
+                            'name' => 'Bench Press',
+                            'bodyParts' => ['chest'],
+                            'targetMuscles' => ['pectorals'],
+                            'instructions' => ['Press the bar.'],
+                        ],
+                        [
+                            'exerciseId' => 'biceps-curl',
+                            'name' => 'Biceps Curl',
+                            'bodyParts' => ['arms'],
+                            'targetMuscles' => ['biceps'],
+                            'instructions' => ['Curl the bar.'],
+                        ],
+                    ],
+                    'meta' => ['nextCursor' => null],
+                ];
+            }
+        };
+
+        $service = new ExerciseDbSyncService($client);
+        $service->sync();
+
+        $this->assertDatabaseMissing('muscles', ['id' => $staleMuscle->id]);
+        $slugs = Muscle::query()->pluck('slug')->all();
+        sort($slugs);
+
+        $this->assertSame(['biceps', 'pectorals'], $slugs);
+    }
+
+    public function test_exercise_sync_dispatches_muscle_translation_jobs_before_instruction_jobs(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        Queue::fake();
+
+        $client = new class extends ExternalExerciseApiClient
+        {
+            public function fetchMuscles(): array
+            {
+                return [['name' => 'pectorals']];
+            }
+
+            public function fetchBodyParts(): array
+            {
+                return [['name' => 'chest']];
+            }
+
+            public function fetchExercises(array $query = []): array
+            {
+                return [
+                    'items' => [
+                        [
+                            'exerciseId' => 'bench-press',
+                            'name' => 'Bench Press',
+                            'bodyParts' => ['chest'],
+                            'targetMuscles' => ['pectorals'],
+                            'instructions' => ['Press the bar.'],
+                        ],
+                    ],
+                    'meta' => ['nextCursor' => null],
+                ];
+            }
+        };
+
+        (new ExerciseDbSyncService($client))->sync();
+
+        $this->assertDatabaseHas('muscles', [
+            'slug' => 'pectorals',
+            'name_en' => 'pectorals',
+            'name_es' => null,
+        ]);
+        Queue::assertPushed(TranslateMuscleJob::class, 1);
+        Queue::assertPushed(TranslateExerciseJob::class, 1);
+    }
+
+    public function test_translate_muscle_job_translates_missing_spanish_name(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $muscle = Muscle::query()->create([
+            'name_en' => 'pectorals',
+            'name_es' => null,
+            'slug' => 'pectorals',
+        ]);
+
+        $translator = new class extends LibreTranslateClient
+        {
+            public function translateMany(array $texts, string $source = 'en', string $target = 'es'): array
+            {
+                return array_map(fn (string $text) => match ($text) {
+                    'pectorals' => 'pectorales',
+                    default => 'ES: '.$text,
+                }, $texts);
+            }
+        };
+
+        (new TranslateMuscleJob($muscle->id))->handle($translator);
+
+        $muscle->refresh();
+
+        $this->assertSame('pectorales', $muscle->name_es);
+    }
+
+    public function test_translate_muscle_job_uses_curated_dictionary_before_translator(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $muscle = Muscle::query()->create([
+            'name_en' => 'calves',
+            'name_es' => null,
+            'slug' => 'calves',
+        ]);
+
+        $translator = new class extends LibreTranslateClient
+        {
+            public function translateMany(array $texts, string $source = 'en', string $target = 'es'): array
+            {
+                throw new RuntimeException('Translator should not be called for dictionary muscles.');
+            }
+        };
+
+        (new TranslateMuscleJob($muscle->id))->handle($translator);
+
+        $muscle->refresh();
+
+        $this->assertSame('pantorrillas', $muscle->name_es);
     }
 
     public function test_translate_exercise_job_translates_instructions_without_touching_names(): void

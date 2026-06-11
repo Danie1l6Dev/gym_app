@@ -11,8 +11,9 @@ Route::get('/', function () {
 });
 
 Route::get('/test-translate', function () {
+    $baseUrl = rtrim((string) config('services.libretranslate.url'), '/');
 
-    $response = Http::post('http://localhost:5000/translate', [
+    $response = Http::baseUrl($baseUrl)->post('/translate', [
         'q' => 'Lie flat on your back.',
         'source' => 'en',
         'target' => 'es',

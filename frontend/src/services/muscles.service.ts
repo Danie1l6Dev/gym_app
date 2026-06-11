@@ -6,6 +6,7 @@ import type { Muscle, MuscleListResponse } from '@/interfaces/muscle';
 export interface MusclesQueryParams {
   search?: string;
   perPage?: number;
+  page?: number;
 }
 
 type RawMuscleResponse = {
@@ -25,6 +26,7 @@ export async function fetchMuscles(params: MusclesQueryParams = {}): Promise<Mus
     params: {
       search: params.search,
       per_page: params.perPage,
+      page: params.page,
     },
   });
 

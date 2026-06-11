@@ -50,6 +50,8 @@ class TranslateExerciseJob implements ShouldQueue
                 'external_id' => $exercise->external_id,
                 'exception' => $throwable,
             ]);
+
+            throw $throwable;
         }
     }
 

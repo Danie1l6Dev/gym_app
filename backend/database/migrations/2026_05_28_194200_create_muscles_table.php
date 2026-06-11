@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('muscles', function (Blueprint $table): void {
             $table->id();
             $table->string('name_en');
-            $table->string('name_es');
+            $table->string('name_es')->nullable();
             $table->string('slug')->unique();
             $table->timestamps();
 

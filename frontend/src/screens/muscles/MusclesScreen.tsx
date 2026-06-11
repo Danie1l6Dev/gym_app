@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useMemo } from 'react';
 import {
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   useWindowDimensions,
@@ -29,17 +30,25 @@ function getColumns(width: number) {
 export default function MusclesScreen() {
   const theme = useTheme();
   const { width } = useWindowDimensions();
-  const { items, loading, refreshing, error, refresh, retry } = useMuscles();
+  const { items, loading, loadingPage, refreshing, error, meta, page, lastPage, refresh, retry, goToPage } =
+    useMuscles({ perPage: 9 });
   const columns = getColumns(width);
   const subtitle = 'Explora grupos musculares y abre sus ejercicios.';
+
+  const pageOptions = useMemo(() => {
+    const candidates = new Set<number>([1, lastPage, page - 2, page - 1, page, page + 1, page + 2]);
+
+    return [...candidates].filter((value) => value >= 1 && value <= lastPage).sort((a, b) => a - b);
+  }, [lastPage, page]);
+
+  async function handlePageChange(nextPage: number) {
+    await goToPage(nextPage);
+  }
 
   const header = useMemo(
     () => (
       <View style={styles.headerStack}>
-        <AppHeader
-          title="Músculos"
-          subtitle={subtitle}
-        />
+        <AppHeader title="Musculos" subtitle={subtitle} />
 
         <View
           style={[
@@ -49,21 +58,84 @@ export default function MusclesScreen() {
           <TextBlock variant="eyebrow" color="primary">
             Fitness map
           </TextBlock>
-          <TextBlock variant="header">Selecciona un músculo para ver sus ejercicios</TextBlock>
+          <TextBlock variant="header">Selecciona un musculo para ver sus ejercicios</TextBlock>
           <TextBlock variant="body" color="muted">
-            La vista consume la API, soporta pull to refresh y navega directo al catálogo filtrado.
+            La vista consume la API, soporta pull to refresh y navega directo al catalogo filtrado.
+          </TextBlock>
+          <TextBlock variant="caption" color="subtle">
+            {meta?.total ? `${meta.total} musculos disponibles.` : 'Cargando total del catalogo...'}
           </TextBlock>
         </View>
+
+        {lastPage > 1 ? (
+          <View
+            style={[
+              styles.paginationCard,
+              { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+            ]}>
+            <View style={styles.paginationHeader}>
+              <TextBlock variant="caption" color="muted">
+                Pagina {page} de {lastPage}
+              </TextBlock>
+              {loadingPage ? <LoadingSpinner label="Cargando pagina" /> : null}
+            </View>
+
+            <View style={styles.paginationControls}>
+              {pageOptions.map((value, index) => {
+                const previous = pageOptions[index - 1];
+                const showEllipsis = typeof previous === 'number' && value - previous > 1;
+                const active = value === page;
+
+                return (
+                  <View key={value} style={styles.pageNumberGroup}>
+                    {showEllipsis ? (
+                      <TextBlock variant="caption" color="subtle">
+                        ...
+                      </TextBlock>
+                    ) : null}
+                    <Pressable
+                      onPress={() => void handlePageChange(value)}
+                      disabled={loadingPage || active}
+                      style={({ pressed }) => [
+                        styles.pageNumberButton,
+                        {
+                          borderColor: active ? theme.colors.primary : theme.colors.border,
+                          backgroundColor: active ? theme.colors.backgroundSelected : theme.colors.surface,
+                        },
+                        pressed && !loadingPage && !active && styles.pressed,
+                        (loadingPage || active) && styles.disabled,
+                      ]}>
+                      <TextBlock variant="button" color={active ? 'primary' : 'muted'}>
+                        {value}
+                      </TextBlock>
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
       </View>
     ),
-    [subtitle, theme.colors.border, theme.colors.surface]
+    [
+      lastPage,
+      loadingPage,
+      meta?.total,
+      page,
+      pageOptions,
+      subtitle,
+      theme.colors.backgroundSelected,
+      theme.colors.border,
+      theme.colors.primary,
+      theme.colors.surface,
+    ]
   );
 
   if (loading && items.length === 0) {
     return (
       <ScreenContainer>
         {header}
-        <LoadingSpinner label="Cargando músculos" />
+        <LoadingSpinner label="Cargando musculos" />
       </ScreenContainer>
     );
   }
@@ -73,7 +145,7 @@ export default function MusclesScreen() {
       <ScreenContainer>
         {header}
         <EmptyState
-          title="No pudimos cargar los músculos"
+          title="No pudimos cargar los musculos"
           description={error}
           icon="alert-circle-outline"
           actionLabel="Reintentar"
@@ -98,8 +170,8 @@ export default function MusclesScreen() {
         ListHeaderComponent={header}
         ListEmptyComponent={
           <EmptyState
-            title="No hay músculos disponibles"
-            description="Cuando el backend regrese datos, aparecerán aquí en forma de grid."
+            title="No hay musculos disponibles"
+            description="Cuando el backend regrese datos, apareceran aqui en forma de grid."
             icon="arm-flex"
           />
         }
@@ -143,6 +215,38 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 10,
   },
+  paginationCard: {
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 16,
+    gap: 12,
+  },
+  paginationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  paginationControls: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pageNumberGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pageNumberButton: {
+    minHeight: 40,
+    minWidth: 40,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
   list: {
     flex: 1,
   },
@@ -159,5 +263,12 @@ const styles = StyleSheet.create({
   },
   gridItemSplit: {
     maxWidth: '100%',
+  },
+  pressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.99 }],
+  },
+  disabled: {
+    opacity: 0.7,
   },
 });
