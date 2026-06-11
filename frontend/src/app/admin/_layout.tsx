@@ -24,6 +24,9 @@ export default function AdminLayout() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="users/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="users/new" options={{ headerShown: false }} />
+      <Stack.Screen name="muscles" options={{ headerShown: false }} />
+      <Stack.Screen name="catalog/exercises" options={{ headerShown: false }} />
+      <Stack.Screen name="catalog/exercises/[id]" options={{ headerShown: false }} />
     </Stack>
   );
 }

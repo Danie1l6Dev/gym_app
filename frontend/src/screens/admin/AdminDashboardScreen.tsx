@@ -107,7 +107,7 @@ export default function AdminDashboardScreen() {
               { label: 'Administradores', href: ROUTES.app.adminUsers, params: { role: 'admin' } },
               { label: 'Ejercicios', href: ROUTES.app.adminExercises },
               { label: 'Rutina personalizada', href: ROUTES.app.routineCreate },
-              { label: 'Músculos', href: ROUTES.app.muscles },
+              { label: 'Músculos', href: ROUTES.app.adminMuscles },
               { label: 'Membresías', href: ROUTES.app.adminMemberships },
               { label: 'Vencimientos', href: ROUTES.app.adminExpiringMemberships },
             ].map((action) => (

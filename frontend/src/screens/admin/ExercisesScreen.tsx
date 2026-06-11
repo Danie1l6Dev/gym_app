@@ -206,7 +206,7 @@ export default function ExercisesScreen() {
       <View style={styles.quickLinks}>
         {[
           { label: 'Rutina personalizada', href: ROUTES.app.routineCreate },
-          { label: 'Músculos', href: ROUTES.app.muscles },
+          { label: 'Músculos', href: ROUTES.app.adminMuscles },
           { label: 'Usuarios', href: ROUTES.app.adminUsers },
         ].map((action) => (
           <Pressable
@@ -429,7 +429,7 @@ export default function ExercisesScreen() {
               exercise={item}
               onPress={() =>
                 router.push({
-                  pathname: ROUTES.app.exerciseDetail,
+                  pathname: ROUTES.app.adminCatalogExerciseDetail,
                   params: { id: String(item.id) },
                 })
               }

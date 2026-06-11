@@ -1,10 +1,11 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StyleSheet, Text, View, type ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { DIMENSIONS } from '@/constants';
+import { DIMENSIONS, ROUTES } from '@/constants';
 import { TAB_ITEMS } from '@/navigation/routes';
+import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 
 type TabIconName = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -12,6 +13,12 @@ type TabIconName = keyof typeof MaterialCommunityIcons.glyphMap;
 export default function TabsLayout() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+
+  if (user?.role?.slug === 'admin') {
+    return <Redirect href={ROUTES.app.adminDashboard as never} />;
+  }
+
   const renderTabIcon = (name: TabIconName, label: string, color: ColorValue) => (
     <View style={styles.tabContent}>
       <MaterialCommunityIcons name={name} size={21} color={color} />
