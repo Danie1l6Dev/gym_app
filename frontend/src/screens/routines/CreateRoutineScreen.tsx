@@ -12,7 +12,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -22,7 +22,7 @@ import { SearchBar } from '@/components/SearchBar';
 import { TextBlock } from '@/components/TextBlock';
 import { TopBar } from '@/components/TopBar';
 import { ROUTES } from '@/constants';
-import { useAuth, useCreateRoutine, useMuscles, usePaginatedExercises } from '@/hooks';
+import { useAuth, useCreateRoutine, useMuscles, usePaginatedExercises, useRoutine, useUpdateRoutine } from '@/hooks';
 import type { Exercise } from '@/interfaces/exercise';
 import type { RoutineInputExercise } from '@/interfaces/routine';
 import { TYPOGRAPHY } from '@/theme';
@@ -35,6 +35,28 @@ type SelectedExercise = {
   restSeconds: string;
   notes: string;
 };
+
+function getSubmitErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object') {
+    const message = 'message' in error && typeof error.message === 'string' ? error.message : null;
+    const data = 'data' in error && error.data && typeof error.data === 'object' ? error.data as {
+      errors?: Record<string, string[]>;
+    } : null;
+    const fieldErrors = data?.errors
+      ? Object.values(data.errors).flat().filter((value) => typeof value === 'string' && value.trim().length > 0)
+      : [];
+
+    if (fieldErrors.length > 0) {
+      return fieldErrors.join('\n');
+    }
+
+    if (message) {
+      return message;
+    }
+  }
+
+  return fallback;
+}
 
 const ROUTINE_THEME = {
   colors: {
@@ -175,9 +197,18 @@ function ExerciseSelectionCard({
 }
 
 export default function CreateRoutineScreen() {
+  const params = useLocalSearchParams<{ id?: string }>();
+  const routineId = typeof params.id === 'string' ? params.id : undefined;
+  const isEditing = Boolean(routineId);
   const theme = ROUTINE_THEME;
   const { width } = useWindowDimensions();
   const { user } = useAuth();
+  const {
+    item: routineToEdit,
+    loading: routineLoading,
+    error: routineError,
+    retry: retryRoutine,
+  } = useRoutine(routineId);
   const { items: muscles, loading: musclesLoading, error: musclesError, retry: retryMuscles } =
     useMuscles({ perPage: 100 });
   const [selectedMuscleId, setSelectedMuscleId] = useState<string | number | null>(null);
@@ -299,7 +330,10 @@ export default function CreateRoutineScreen() {
     return () => clearTimeout(timeout);
   }, [exercisesPage, exercisesSectionOffset, scrollToExercisesStart]);
 
-  const { submit, loading: saving, error: submitError } = useCreateRoutine();
+  const { submit: createRoutineSubmit, loading: creating, error: createError } = useCreateRoutine();
+  const { submit: updateRoutineSubmit, loading: updating, error: updateError } = useUpdateRoutine();
+  const saving = creating || updating;
+  const submitError = createError ?? updateError;
   const isAdmin = user?.role?.slug === 'admin';
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -307,6 +341,31 @@ export default function CreateRoutineScreen() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [nameMissing, setNameMissing] = useState(false);
   const [isPredefined, setIsPredefined] = useState(false);
+  const [didPopulateForm, setDidPopulateForm] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing || !routineToEdit || didPopulateForm) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setName(routineToEdit.name ?? '');
+      setDescription(routineToEdit.description ?? '');
+      setIsPredefined(Boolean(routineToEdit.is_predefined));
+      setSelected(
+        (routineToEdit.exercises ?? []).map((exercise) => ({
+          exercise,
+          sets: String(exercise.pivot?.sets ?? ''),
+          reps: String(exercise.pivot?.reps ?? ''),
+          restSeconds: String(exercise.pivot?.rest_seconds ?? ''),
+          notes: exercise.pivot?.notes ?? '',
+        }))
+      );
+      setDidPopulateForm(true);
+    }, 0);
+
+    return () => clearTimeout(timeout);
+  }, [didPopulateForm, isEditing, routineToEdit]);
 
   useEffect(() => {
     const previousCount = selectedCountRef.current;
@@ -414,8 +473,15 @@ export default function CreateRoutineScreen() {
     try {
       setValidationError(null);
       console.log('[CreateRoutine] payload', payload);
-      const result = await submit(payload);
+      const result = isEditing && routineId
+        ? await updateRoutineSubmit(routineId, payload)
+        : await createRoutineSubmit(payload);
       console.log('[CreateRoutine] submit result', result);
+      if (isEditing && routineId) {
+        router.replace(`/routines/${String(routineId)}`);
+        return;
+      }
+
       if (result?.item?.id) {
         router.push(`/routines/${String(result.item.id)}`);
         return;
@@ -424,12 +490,43 @@ export default function CreateRoutineScreen() {
       setValidationError('No se pudo obtener el detalle de la rutina creada. Intenta nuevamente.');
     } catch (error) {
       console.error('[CreateRoutine] submit error', error);
-      if (error instanceof Error) {
-        setValidationError(error.message);
-      } else {
-        setValidationError('Ocurrió un error al crear la rutina.');
-      }
+      const message = getSubmitErrorMessage(
+        error,
+        isEditing ? 'Ocurrió un error al actualizar la rutina.' : 'Ocurrió un error al crear la rutina.'
+      );
+      setValidationError(message);
+      setTimeout(() => {
+        scrollToRoutineDetailsStart();
+      }, 100);
     }
+  }
+
+  if (isEditing && routineLoading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <TopBar />
+        <AppHeader title="Editar rutina" subtitle="Cargando datos de la rutina" showBack />
+        <LoadingSpinner label="Preparando rutina" />
+      </SafeAreaView>
+    );
+  }
+
+  if (isEditing && routineError && !routineToEdit) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <TopBar />
+        <View style={styles.loadingWrap}>
+          <AppHeader title="Editar rutina" subtitle="No pudimos cargar la rutina" showBack />
+          <EmptyState
+            title="No pudimos cargar la rutina"
+            description={routineError}
+            icon="alert-circle-outline"
+            actionLabel="Reintentar"
+            onAction={() => void retryRoutine()}
+          />
+        </View>
+      </SafeAreaView>
+    );
   }
 
   if (musclesLoading && muscles.length === 0) {
@@ -450,7 +547,15 @@ export default function CreateRoutineScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
-        <AppHeader title="Crear rutina" subtitle="Construye una rutina personalizada paso a paso" showBack />
+        <AppHeader
+          title={isEditing ? 'Editar rutina' : 'Crear rutina'}
+          subtitle={
+            isEditing
+              ? 'Ajusta ejercicios, volumen y detalles de tu rutina.'
+              : 'Construye una rutina personalizada paso a paso'
+          }
+          showBack
+        />
 
         <View style={styles.heroCard}>
           <View style={styles.heroGlow} />
@@ -458,9 +563,11 @@ export default function CreateRoutineScreen() {
             <MaterialCommunityIcons name="clipboard-text-outline" size={108} color="#a78bfa" />
           </View>
           <TextBlock variant="eyebrow" color="primary">
-            Routine builder
+            {isEditing ? 'Routine editor' : 'Routine builder'}
           </TextBlock>
-          <TextBlock variant="header">Selecciona ejercicios y define el volumen</TextBlock>
+          <TextBlock variant="header">
+            {isEditing ? 'Actualiza ejercicios y define el volumen' : 'Selecciona ejercicios y define el volumen'}
+          </TextBlock>
           <TextBlock variant="body" color="muted">
             Cada ejercicio guarda sets, reps, descanso y notas directamente en el pivot de rutina.
           </TextBlock>
@@ -988,9 +1095,14 @@ export default function CreateRoutineScreen() {
             saving && styles.disabled,
           ]}>
           <TextBlock variant="button" style={styles.submitLabel}>
-            {saving ? 'Guardando...' : 'Guardar rutina'}
+            {saving ? 'Guardando...' : isEditing ? 'Actualizar rutina' : 'Guardar rutina'}
           </TextBlock>
         </Pressable>
+        {(validationError || submitError) ? (
+          <View style={styles.submitErrorBox}>
+            <Text style={styles.submitErrorText}>{validationError ?? submitError}</Text>
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -1380,6 +1492,20 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '700',
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  submitErrorBox: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(248,113,113,0.35)',
+    backgroundColor: 'rgba(127,29,29,0.14)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  submitErrorText: {
+    color: '#fca5a5',
+    fontSize: 12.5,
+    lineHeight: 18,
     fontFamily: TYPOGRAPHY.fonts.body,
   },
   pressed: {

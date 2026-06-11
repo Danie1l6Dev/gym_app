@@ -1,11 +1,13 @@
-import { Alert, router } from 'expo-router';
+import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   FlatList,
+  Modal,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,8 +15,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { TopBar } from '@/components/TopBar';
-import { DIMENSIONS, ROUTES } from '@/constants';
-import { useAuth, useRoutines } from '@/hooks';
+import { ROUTES } from '@/constants';
+import { useAuth, useDeleteRoutine, useRoutines } from '@/hooks';
 import { TYPOGRAPHY } from '@/theme';
 import type { Exercise } from '@/interfaces/exercise';
 import type { Routine } from '@/interfaces/routine';
@@ -22,7 +24,7 @@ import type { Routine } from '@/interfaces/routine';
 type RoutineTab = 'recommended' | 'mine';
 
 const TABS: { key: RoutineTab; label: string; sub: string }[] = [
-  { key: 'recommended', label: 'Recomendadas', sub: 'Rutinas predefinidas del catálogo' },
+  { key: 'recommended', label: 'Recomendadas', sub: 'Rutinas predefinidas del catÃ¡logo' },
   { key: 'mine', label: 'Mis rutinas', sub: 'Rutinas creadas o asignadas a tu usuario' },
 ];
 
@@ -43,8 +45,22 @@ function getNivel(r: Routine): string {
   return 'Intermedio';
 }
 
-function RutinaCard({ routine, exercisesCount, personal, onPress }: {
-  routine: Routine; exercisesCount: number; personal?: boolean; onPress: () => void;
+function RutinaCard({
+  routine,
+  exercisesCount,
+  personal,
+  onPress,
+  onEdit,
+  onDelete,
+  deleting,
+}: {
+  routine: Routine;
+  exercisesCount: number;
+  personal?: boolean;
+  onPress: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  deleting?: boolean;
 }) {
   const nivel = getNivel(routine);
   const nv = NIVEL_STYLE[nivel] ?? NIVEL_STYLE.Intermedio;
@@ -122,12 +138,25 @@ function RutinaCard({ routine, exercisesCount, personal, onPress }: {
               {personal && (
                 <>
                   <Pressable
+                    onPress={(event) => {
+                      event.stopPropagation?.();
+                      onEdit?.();
+                    }}
                     style={({ hovered: h }) => [styles.rIconBtn, { backgroundColor: h ? 'rgba(139,92,246,0.12)' : 'transparent', borderColor: h ? 'rgba(139,92,246,0.35)' : 'rgba(255,255,255,0.06)' }]}>
-                    <MaterialCommunityIcons name="pencil" size={13} color="rgba(255,255,255,0.3)" />
+                    <MaterialCommunityIcons name="pencil" size={13} color="#c4b5fd" />
                   </Pressable>
                   <Pressable
+                    onPress={(event) => {
+                      event.stopPropagation?.();
+                      onDelete?.();
+                    }}
+                    disabled={deleting}
                     style={({ hovered: h }) => [styles.rIconBtn, { backgroundColor: h ? 'rgba(248,113,113,0.12)' : 'transparent', borderColor: h ? 'rgba(248,113,113,0.35)' : 'rgba(255,255,255,0.06)' }]}>
-                    <MaterialCommunityIcons name="delete-outline" size={13} color="rgba(255,255,255,0.3)" />
+                    <MaterialCommunityIcons
+                      name="delete-outline"
+                      size={13}
+                      color={deleting ? 'rgba(248,113,113,0.55)' : 'rgba(255,255,255,0.3)'}
+                    />
                   </Pressable>
                 </>
               )}
@@ -169,7 +198,7 @@ function CrearRutinaModal({ visible, onClose }: { visible: boolean; onClose: () 
               <TextInput
                 value={nombre}
                 onChangeText={setNombre}
-                placeholder="Ej. Rutina de fuerza — Martes"
+                placeholder="Ej. Rutina de fuerza â€” Martes"
                 placeholderTextColor="rgba(255,255,255,0.25)"
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
@@ -217,6 +246,62 @@ function CrearRutinaModal({ visible, onClose }: { visible: boolean; onClose: () 
   );
 }
 
+function ConfirmDeleteRoutineModal({
+  visible,
+  routineName,
+  deleting,
+  deleteError,
+  onCancel,
+  onConfirm,
+}: {
+  visible: boolean;
+  routineName?: string | null;
+  deleting?: boolean;
+  deleteError?: string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <Pressable style={styles.modalOverlay} onPress={deleting ? undefined : onCancel}>
+        <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
+          <View style={styles.modalHeader}>
+            <View style={[styles.modalIconWrap, styles.deleteModalIconWrap]}>
+              <MaterialCommunityIcons name="delete-outline" size={16} color="#f87171" />
+            </View>
+            <View>
+              <Text style={styles.modalTitle}>Eliminar rutina</Text>
+              <Text style={styles.modalSub}>Esta acciÃ³n no se puede deshacer.</Text>
+            </View>
+          </View>
+
+          <View style={styles.modalForm}>
+            <Text style={styles.deleteModalText}>
+              {`Se eliminarÃ¡ "${routineName ?? 'esta rutina'}" de tus rutinas personales.`}
+            </Text>
+            {deleteError ? <Text style={styles.deleteModalError}>{deleteError}</Text> : null}
+          </View>
+
+          <View style={styles.modalActions}>
+            <Pressable
+              onPress={onCancel}
+              disabled={deleting}
+              style={[styles.modalCancel, deleting && styles.modalDisabled]}>
+              <Text style={styles.modalCancelText}>Cancelar</Text>
+            </Pressable>
+            <Pressable
+              onPress={onConfirm}
+              disabled={deleting}
+              style={[styles.modalDelete, deleting && styles.modalDisabled]}>
+              <Text style={styles.modalDeleteText}>{deleting ? 'Eliminando...' : 'Eliminar'}</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 function EmptyRoutines({ onCrear }: { onCrear: () => void }) {
   return (
     <View style={styles.emptyCard}>
@@ -225,7 +310,7 @@ function EmptyRoutines({ onCrear }: { onCrear: () => void }) {
       </View>
       <Text style={styles.emptyTitle}>Sin rutinas creadas</Text>
       <Text style={styles.emptyDesc}>
-        Aún no tienes rutinas personalizadas. Crea una nueva o una recomendada como base.
+        AÃºn no tienes rutinas personalizadas. Crea una nueva o una recomendada como base.
       </Text>
       <Pressable onPress={onCrear} style={styles.emptyBtn}>
         <MaterialCommunityIcons name="plus" size={14} color="#fff" />
@@ -238,8 +323,11 @@ function EmptyRoutines({ onCrear }: { onCrear: () => void }) {
 export default function RoutinesScreen() {
   const { user } = useAuth();
   const { items, loading, refreshing, error, refresh, retry } = useRoutines();
+  const { submit: deleteRoutineSubmit, loading: deleting, error: deleteError } = useDeleteRoutine();
   const [activeTab, setActiveTab] = useState<RoutineTab>('recommended');
   const [modalVisible, setModalVisible] = useState(false);
+  const [deletingRoutineId, setDeletingRoutineId] = useState<string | null>(null);
+  const [routinePendingDelete, setRoutinePendingDelete] = useState<Routine | null>(null);
 
   const recommended = useMemo(
     () => items.filter((r) => Boolean(r.is_predefined)),
@@ -258,6 +346,31 @@ export default function RoutinesScreen() {
   const subtitle = activeTab === 'recommended'
     ? 'Plantillas listas para usar con los ejercicios del sistema.'
     : 'Rutinas personalizadas vinculadas a tu perfil.';
+
+  function handleDeleteRoutine(routine: Routine) {
+    if (deleting) {
+      return;
+    }
+
+    setRoutinePendingDelete(routine);
+    return;
+  }
+
+  async function confirmDeleteRoutine() {
+    if (!routinePendingDelete) {
+      return;
+    }
+
+    try {
+      const routineId = String(routinePendingDelete.id);
+      setDeletingRoutineId(routineId);
+      await deleteRoutineSubmit(routinePendingDelete.id);
+      setRoutinePendingDelete(null);
+      await refresh();
+    } finally {
+      setDeletingRoutineId(null);
+    }
+  }
 
   if (loading && items.length === 0) {
     return (
@@ -301,7 +414,7 @@ export default function RoutinesScreen() {
           <View>
             <View style={styles.headerRow}>
               <View>
-                <Text style={styles.eyebrow}>GYM PONTE PIÑUO</Text>
+                <Text style={styles.eyebrow}>GYM PONTE PIÃ‘UO</Text>
                 <Text style={styles.pageTitle}>Rutinas</Text>
                 <Text style={styles.greeting}>Explora recomendaciones y tus rutinas personales.</Text>
               </View>
@@ -378,8 +491,29 @@ export default function RoutinesScreen() {
             exercisesCount={item.exercises?.length ?? 0}
             personal={activeTab === 'mine'}
             onPress={() => router.push({ pathname: ROUTES.app.routineDetail, params: { id: String(item.id) } })}
+            onEdit={() =>
+              router.push({
+                pathname: ROUTES.app.routineCreate,
+                params: { id: String(item.id) },
+              })
+            }
+            onDelete={() => handleDeleteRoutine(item)}
+            deleting={deletingRoutineId === String(item.id)}
           />
         )}
+      />
+      <CrearRutinaModal visible={modalVisible} onClose={() => setModalVisible(false)} />
+      <ConfirmDeleteRoutineModal
+        visible={Boolean(routinePendingDelete)}
+        routineName={routinePendingDelete?.name}
+        deleting={deleting}
+        deleteError={deleteError}
+        onCancel={() => {
+          if (!deleting) {
+            setRoutinePendingDelete(null);
+          }
+        }}
+        onConfirm={() => void confirmDeleteRoutine()}
       />
     </SafeAreaView>
   );
@@ -776,9 +910,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: 'rgba(255,255,255,0.28)',
   },
+  deleteModalIconWrap: {
+    backgroundColor: 'rgba(248,113,113,0.12)',
+    borderColor: 'rgba(248,113,113,0.35)',
+  },
   modalForm: {
     gap: 16,
     marginBottom: 24,
+  },
+  deleteModalText: {
+    fontSize: 13,
+    lineHeight: 21,
+    color: 'rgba(255,255,255,0.72)',
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  deleteModalError: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#f87171',
+    fontFamily: TYPOGRAPHY.fonts.body,
   },
   modalLabel: {
     fontSize: 12,
@@ -848,6 +998,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  modalDelete: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: 'rgba(127,29,29,0.9)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(248,113,113,0.5)',
+    shadowColor: 'rgba(248,113,113,0.24)',
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+  modalDeleteText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  modalDisabled: {
+    opacity: 0.7,
   },
 
 });

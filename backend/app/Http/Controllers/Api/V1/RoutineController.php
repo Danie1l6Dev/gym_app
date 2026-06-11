@@ -134,6 +134,7 @@ class RoutineController extends Controller
     private function syncExercises(Routine $routine, array $exercises): void
     {
         if ($exercises === []) {
+            $routine->exercises()->sync([]);
             return;
         }
 
