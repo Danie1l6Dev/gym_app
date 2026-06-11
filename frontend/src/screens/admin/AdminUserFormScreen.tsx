@@ -73,9 +73,13 @@ function formatDateInput(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function createDefaultEndDate(): string {
+function createMembershipEndDate(durationDays?: number | null): string {
+  if (!durationDays || durationDays <= 0) {
+    return '';
+  }
+
   const date = new Date();
-  date.setDate(date.getDate() + 30);
+  date.setDate(date.getDate() + durationDays);
   return formatDateInput(date);
 }
 
@@ -86,7 +90,6 @@ export default function AdminUserFormScreen() {
   const [values, setValues] = useState<Values>({
     ...EMPTY_VALUES,
     roleSlug: params.role === 'admin' ? 'admin' : 'user',
-    membershipEndsAt: createDefaultEndDate(),
   });
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
@@ -97,6 +100,21 @@ export default function AdminUserFormScreen() {
     () => membershipTypes.filter((membershipType) => membershipType.is_active),
     [membershipTypes]
   );
+  const effectiveMembershipPlanType = useMemo(() => {
+    const currentPlanExists = activeMembershipTypes.some(
+      (membershipType) => membershipType.code === values.membershipPlanType
+    );
+
+    return currentPlanExists ? values.membershipPlanType : activeMembershipTypes[0]?.code ?? '';
+  }, [activeMembershipTypes, values.membershipPlanType]);
+  const selectedMembershipType = useMemo(
+    () => activeMembershipTypes.find((membershipType) => membershipType.code === effectiveMembershipPlanType) ?? null,
+    [activeMembershipTypes, effectiveMembershipPlanType]
+  );
+  const calculatedMembershipEndsAt = createMembershipEndDate(selectedMembershipType?.duration_days);
+  const membershipEndsAt = !isEditing && values.roleSlug === 'user'
+    ? calculatedMembershipEndsAt
+    : values.membershipEndsAt;
 
   const canSubmit = useMemo(() => {
     const baseReady = Boolean(values.name.trim() && values.email.trim());
@@ -109,11 +127,11 @@ export default function AdminUserFormScreen() {
     }
 
     if (!isEditing && values.roleSlug === 'user') {
-      return Boolean(values.membershipPlanType && values.membershipEndsAt && activeMembershipTypes.length > 0);
+      return Boolean(effectiveMembershipPlanType && membershipEndsAt && activeMembershipTypes.length > 0);
     }
 
     return true;
-  }, [activeMembershipTypes.length, isEditing, values]);
+  }, [activeMembershipTypes.length, effectiveMembershipPlanType, isEditing, membershipEndsAt, values]);
 
   useEffect(() => {
     if (!params.id) {
@@ -147,7 +165,7 @@ export default function AdminUserFormScreen() {
           roleSlug: user.role?.slug === 'admin' ? 'admin' : 'user',
           isActive: user.is_active !== false,
           membershipPlanType: user.latest_membership?.plan_type ?? 'monthly',
-          membershipEndsAt: user.latest_membership?.ends_at ?? createDefaultEndDate(),
+          membershipEndsAt: user.latest_membership?.ends_at ?? '',
           membershipNotes: user.latest_membership?.notes ?? '',
         });
       } catch (err) {
@@ -167,23 +185,6 @@ export default function AdminUserFormScreen() {
       mounted = false;
     };
   }, [params.id]);
-
-  useEffect(() => {
-    if (activeMembershipTypes.length === 0) {
-      return;
-    }
-
-    const currentPlanExists = activeMembershipTypes.some(
-      (membershipType) => membershipType.code === values.membershipPlanType
-    );
-
-    if (!currentPlanExists) {
-      setValues((current) => ({
-        ...current,
-        membershipPlanType: activeMembershipTypes[0].code,
-      }));
-    }
-  }, [activeMembershipTypes, values.membershipPlanType]);
 
   function updateField<T extends keyof Values>(field: T, value: Values[T]) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -218,8 +219,8 @@ export default function AdminUserFormScreen() {
           : {}),
         ...(!isEditing && values.roleSlug === 'user'
           ? {
-              membership_plan_type: values.membershipPlanType,
-              membership_ends_at: values.membershipEndsAt,
+              membership_plan_type: effectiveMembershipPlanType,
+              membership_ends_at: membershipEndsAt,
               membership_notes: values.membershipNotes.trim() || null,
             }
           : {}),
@@ -388,15 +389,15 @@ export default function AdminUserFormScreen() {
           {!isEditing && values.roleSlug === 'user' ? (
             <View style={[styles.membershipBox, { backgroundColor: theme.colors.backgroundSoft, borderColor: theme.colors.border }]}>
               <TextBlock variant="title">Membresia inicial</TextBlock>
-              <View style={styles.segmentRow}>
+              <View style={styles.membershipPlanGrid}>
                 {activeMembershipTypes.map((membershipType) => {
-                  const selected = values.membershipPlanType === membershipType.code;
+                  const selected = effectiveMembershipPlanType === membershipType.code;
                   return (
                     <Pressable
                       key={membershipType.id}
                       onPress={() => updateField('membershipPlanType', membershipType.code)}
                       style={({ pressed }) => [
-                        styles.segment,
+                        styles.membershipPlanCard,
                         {
                           backgroundColor: selected ? theme.colors.surfaceElevated : theme.colors.surface,
                           borderColor: selected ? theme.colors.primary : theme.colors.border,
@@ -405,14 +406,14 @@ export default function AdminUserFormScreen() {
                       ]}
                     >
                       <TextBlock variant="caption" color={selected ? 'primary' : 'muted'}>{membershipType.name}</TextBlock>
-                      <TextBlock variant="caption" color="subtle">{Number(membershipType.price).toLocaleString('es-CO')} COP</TextBlock>
+                      <TextBlock variant="caption" color="subtle">{Number(membershipType.price).toLocaleString('es-CO')} COP · {membershipType.duration_days} dias</TextBlock>
                     </Pressable>
                   );
                 })}
               </View>
               <View style={styles.field}>
                 <TextBlock variant="caption" color="muted">Vence</TextBlock>
-                <TextInput value={values.membershipEndsAt} onChangeText={(value) => updateField('membershipEndsAt', value)} placeholder="YYYY-MM-DD" keyboardType="numbers-and-punctuation" placeholderTextColor={theme.colors.textSubtle} style={[styles.input, { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border, color: theme.colors.text }]} />
+                <TextInput value={membershipEndsAt} editable={false} placeholder="YYYY-MM-DD" placeholderTextColor={theme.colors.textSubtle} style={[styles.input, { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border, color: theme.colors.text }]} />
               </View>
               <View style={styles.field}>
                 <TextBlock variant="caption" color="muted">Notas</TextBlock>
@@ -504,6 +505,24 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: 16,
     gap: 14,
+  },
+  membershipPlanGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  membershipPlanCard: {
+    flexGrow: 1,
+    flexBasis: '31%',
+    minWidth: 120,
+    minHeight: 82,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
   },
   switchRow: {
     borderRadius: 18,
