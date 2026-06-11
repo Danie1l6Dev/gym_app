@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
 import { EmptyState } from '@/components/EmptyState';
@@ -59,6 +59,22 @@ export default function RoutineDetailScreen() {
               title={item.name}
               subtitle={item.description ?? 'Rutina lista para entrenar.'}
               showBack
+              rightElement={(
+                <Pressable
+                  onPress={() => router.replace(ROUTES.app.routines)}
+                  style={({ pressed }) => [
+                    styles.backToRoutinesButton,
+                    {
+                      backgroundColor: theme.colors.surfaceElevated,
+                      borderColor: theme.colors.border,
+                    },
+                    pressed && styles.pressed,
+                  ]}>
+                  <TextBlock variant="button" color="primary">
+                    Volver a rutinas
+                  </TextBlock>
+                </Pressable>
+              )}
             />
 
             <View
@@ -219,5 +235,16 @@ const styles = StyleSheet.create({
   },
   notesBox: {
     gap: 6,
+  },
+  backToRoutinesButton: {
+    minHeight: DIMENSIONS.touchTarget,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  pressed: {
+    opacity: 0.72,
   },
 });

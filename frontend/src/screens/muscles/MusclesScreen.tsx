@@ -48,7 +48,13 @@ export default function MusclesScreen() {
   const header = useMemo(
     () => (
       <View style={styles.headerStack}>
-        <AppHeader title="Musculos" subtitle={subtitle} />
+        <AppHeader
+          title="Musculos"
+          subtitle={subtitle}
+          showBack
+          backHref={ROUTES.app.explore}
+          backVariant="button-right"
+        />
 
         <View
           style={[
