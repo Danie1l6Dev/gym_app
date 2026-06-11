@@ -15,10 +15,7 @@ return new class extends Migration
                 ->constrained()
                 ->cascadeOnDelete();
 
-            $table->enum('plan_type', [
-                'weekly',
-                'monthly'
-            ]);
+            $table->string('plan_type', 60);
 
             $table->enum('status', [
                 'active',
