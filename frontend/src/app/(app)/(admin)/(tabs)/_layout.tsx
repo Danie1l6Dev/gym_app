@@ -35,7 +35,7 @@ export default function AdminTabsLayout() {
         options={{
           title: ADMIN_TAB_ITEMS[0].label,
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="shield-view-dashboard-outline" size={size ?? 22} color={color} />
+            <MaterialCommunityIcons name="view-dashboard-outline" size={size ?? 22} color={color} />
           ),
         }}
       />
@@ -69,16 +69,13 @@ export default function AdminTabsLayout() {
       <Tabs.Screen
         name="expiring"
         options={{
-          title: ADMIN_TAB_ITEMS[4].label,
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="calendar-alert-outline" size={size ?? 22} color={color} />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen
         name="manage"
         options={{
-          title: ADMIN_TAB_ITEMS[5].label,
+          title: ADMIN_TAB_ITEMS[4].label,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="cog-outline" size={size ?? 22} color={color} />
           ),

@@ -18,6 +18,10 @@ class MembershipIndexRequest extends FormRequest
             $payload['days'] = $this->integer('days');
         }
 
+        if ($this->has('search')) {
+            $payload['search'] = trim((string) $this->input('search'));
+        }
+
         if ($payload !== []) {
             $this->merge($payload);
         }
@@ -33,6 +37,7 @@ class MembershipIndexRequest extends FormRequest
         return [
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'days' => ['sometimes', 'integer', 'min:1', 'max:365'],
+            'search' => ['sometimes', 'nullable', 'string', 'max:120'],
         ];
     }
 }

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { AdminMembership } from '@/interfaces/admin';
 import { fetchAdminMemberships } from '@/services';
 
-export function useAdminMemberships(perPage = 10) {
+export function useAdminMemberships(perPage = 10, search = '') {
   const [items, setItems] = useState<AdminMembership[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -18,6 +18,7 @@ export function useAdminMemberships(perPage = 10) {
         const response = await fetchAdminMemberships({
           page: nextPage,
           perPage,
+          search,
         });
 
         setItems((current) => (replace ? response.items : [...current, ...response.items]));
@@ -30,7 +31,7 @@ export function useAdminMemberships(perPage = 10) {
         setRefreshing(false);
       }
     },
-    [perPage]
+    [perPage, search]
   );
 
   const refresh = useCallback(async () => {

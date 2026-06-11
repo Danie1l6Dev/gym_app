@@ -18,7 +18,30 @@ class MembershipController extends Controller
 
         $memberships = Membership::query()
             ->with(['user', 'type'])
-            ->latest()
+            ->when(isset($filters['search']) && $filters['search'] !== '', function ($query) use ($filters): void {
+                $search = $filters['search'];
+
+                $query->where(function ($inner) use ($search): void {
+                    $inner->where('plan_type', 'like', "%{$search}%")
+                        ->orWhere('status', 'like', "%{$search}%")
+                        ->orWhereHas('type', function ($typeQuery) use ($search): void {
+                            $typeQuery->where('name', 'like', "%{$search}%")
+                                ->orWhere('code', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('user', function ($userQuery) use ($search): void {
+                            $userQuery->where('name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%")
+                                ->orWhere('username', 'like', "%{$search}%")
+                                ->orWhere('phone', 'like', "%{$search}%");
+                        });
+                });
+            })
+            ->orderByRaw(
+                "CASE WHEN status = 'active' AND ends_at >= ? THEN 0 ELSE 1 END",
+                [now()->toDateString()]
+            )
+            ->orderBy('ends_at')
+            ->orderBy('starts_at')
             ->paginate($filters['per_page'] ?? 15);
 
         return MembershipResource::collection($memberships)

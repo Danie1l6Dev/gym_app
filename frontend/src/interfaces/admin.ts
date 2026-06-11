@@ -63,6 +63,7 @@ export interface AdminUsersQuery {
 }
 
 export interface AdminMembershipsQuery {
+  search?: string;
   page?: number;
   perPage?: number;
   days?: number;

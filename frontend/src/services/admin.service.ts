@@ -64,6 +64,7 @@ async function fetchAdminMembershipsPage(query: AdminMembershipsQuery = {}) {
     params: {
       page: query.page,
       per_page: query.perPage,
+      search: query.search,
     },
   });
 
