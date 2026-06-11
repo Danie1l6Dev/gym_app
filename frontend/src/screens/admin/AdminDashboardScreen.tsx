@@ -1,4 +1,4 @@
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { AppHeader } from '@/components/AppHeader';
@@ -13,6 +13,9 @@ import { useTheme } from '@/hooks/use-theme';
 
 export default function AdminDashboardScreen() {
   const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const statCardStyle =
+    width >= 768 ? styles.statCardThird : width < 380 ? styles.statCardFull : styles.statCardHalf;
   const { logout } = useAuth();
   const { data, loading, refreshing, error, refresh, retry } = useAdminDashboard();
 
@@ -68,18 +71,21 @@ export default function AdminDashboardScreen() {
             value={String(data?.stats.totalUsers ?? 0)}
             detail="usuarios registrados en el sistema"
             tone="primary"
+            style={statCardStyle}
           />
           <AdminStatCard
             label="Membresías activas"
             value={String(data?.stats.activeMemberships ?? 0)}
             detail="membresías con estado activo"
             tone="secondary"
+            style={statCardStyle}
           />
           <AdminStatCard
             label="Próximos vencimientos"
             value={String(data?.stats.expiringMemberships ?? 0)}
             detail={`ventana de ${DEFAULT_EXPIRING_WINDOW_DAYS} días`}
             tone="warning"
+            style={statCardStyle}
           />
         </View>
 
@@ -190,6 +196,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+  },
+  statCardHalf: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minWidth: 0,
+  },
+  statCardThird: {
+    flexGrow: 1,
+    flexBasis: '31%',
+    minWidth: 0,
+  },
+  statCardFull: {
+    width: '100%',
   },
   sectionCard: {
     borderRadius: DIMENSIONS.cardRadius,
