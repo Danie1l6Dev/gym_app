@@ -62,7 +62,8 @@ function createApiError(error: AxiosError<ApiErrorResponse>): ApiError {
   const message =
     error.code === 'ECONNABORTED'
       ? 'La API tardó demasiado en responder. Revisa que `EXPO_PUBLIC_API_BASE_URL` apunte al backend correcto.'
-      : error.response?.data?.message ||
+      : getValidationMessage(error.response?.data) ||
+        humanizeApiMessage(error.response?.data?.message) ||
         error.message ||
         'Ocurrió un error inesperado. Intenta nuevamente.';
 
@@ -73,4 +74,25 @@ function createApiError(error: AxiosError<ApiErrorResponse>): ApiError {
   apiError.isApiError = true;
 
   return apiError;
+}
+
+function getValidationMessage(data?: ApiErrorResponse) {
+  const messages = data?.errors ? Object.values(data.errors).flat().filter(Boolean) : [];
+
+  return humanizeApiMessage(messages[0]);
+}
+
+function humanizeApiMessage(message?: string) {
+  if (!message) {
+    return undefined;
+  }
+
+  const readableMessages: Record<string, string> = {
+    'validation.min.string': 'La contrasena debe tener al menos 8 caracteres.',
+    'validation.confirmed': 'La confirmacion de contrasena no coincide.',
+    'validation.required': 'Completa los campos obligatorios.',
+    'validation.unique': 'Ya existe un registro con ese valor.',
+  };
+
+  return readableMessages[message] ?? message;
 }

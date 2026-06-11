@@ -1,4 +1,13 @@
-export type AppRoute = '/login' | '/home' | '/routines' | '/explore' | '/profile' | '/muscles' | '/exercises';
+export type AppRoute =
+  | '/login'
+  | '/home'
+  | '/routines'
+  | '/explore'
+  | '/profile'
+  | '/muscles'
+  | '/exercises'
+  | '/admin/muscles'
+  | '/admin/catalog/exercises';
 
 export interface MuscleSummary {
   id: string;

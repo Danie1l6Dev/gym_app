@@ -7,6 +7,8 @@ import {
   Pressable,
   RefreshControl,
   StyleSheet,
+  Switch,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -25,7 +27,9 @@ import type { Exercise } from '@/interfaces/exercise';
 export default function ExercisesScreen() {
   const theme = useTheme();
   const { token } = useAuth();
+  const { width } = useWindowDimensions();
   const listRef = useRef<FlatList<Exercise> | null>(null);
+  const [onlyExercisesWithGif, setOnlyExercisesWithGif] = useState(true);
   const {
     items,
     loading,
@@ -38,11 +42,31 @@ export default function ExercisesScreen() {
     refresh,
     retry,
     meta,
-  } = usePaginatedExercises({ perPage: 10, keepPreviousPages: false });
+  } = usePaginatedExercises({ perPage: 10, keepPreviousPages: false, hasGif: onlyExercisesWithGif });
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [translationNoticeVisible, setTranslationNoticeVisible] = useState(false);
+
+  const exerciseGridColumns = useMemo(() => {
+    if (width < 600) return 1;
+    if (width < 1024) return 2;
+    return 3;
+  }, [width]);
+
+  const exerciseColumnWrapperStyle = useMemo(() => {
+    if (exerciseGridColumns === 1) return undefined;
+    return styles.exerciseColumnWrapper;
+  }, [exerciseGridColumns]);
+
+  const exerciseCardWrapperStyle = useMemo(() => {
+    if (exerciseGridColumns === 1) return styles.cardWrap;
+
+    return [
+      styles.cardWrap,
+      { maxWidth: `${100 / exerciseGridColumns}%` as `${number}%` },
+    ];
+  }, [exerciseGridColumns]);
 
   const summary = useMemo(
     () => [
@@ -206,7 +230,7 @@ export default function ExercisesScreen() {
       <View style={styles.quickLinks}>
         {[
           { label: 'Rutina personalizada', href: ROUTES.app.routineCreate },
-          { label: 'Músculos', href: ROUTES.app.muscles },
+          { label: 'Músculos', href: ROUTES.app.adminMuscles },
           { label: 'Usuarios', href: ROUTES.app.adminUsers },
         ].map((action) => (
           <Pressable
@@ -225,6 +249,23 @@ export default function ExercisesScreen() {
           styles.paginationCard,
           { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
         ]}>
+        <View style={styles.gifFilterRow}>
+          <View style={styles.gifFilterCopy}>
+            <TextBlock variant="caption" color="muted">
+              Solo ejercicios con GIF
+            </TextBlock>
+            <TextBlock variant="caption" color="subtle">
+              Oculta ejercicios sin animacion para que la grilla no deje espacios vacios.
+            </TextBlock>
+          </View>
+          <Switch
+            value={onlyExercisesWithGif}
+            onValueChange={setOnlyExercisesWithGif}
+            trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+            thumbColor="#fff"
+          />
+        </View>
+
         <View style={styles.paginationHeader}>
           <TextBlock variant="caption" color="muted">
             Página {page} de {lastPage}
@@ -407,9 +448,12 @@ export default function ExercisesScreen() {
       </Modal>
 
       <FlatList
+        key={`admin-exercise-grid-${exerciseGridColumns}`}
         ref={listRef}
         style={styles.list}
         data={items}
+        numColumns={exerciseGridColumns}
+        columnWrapperStyle={exerciseColumnWrapperStyle}
         keyExtractor={(item) => String(item.id)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void handleRefresh()} />}
         contentContainerStyle={styles.content}
@@ -424,12 +468,12 @@ export default function ExercisesScreen() {
           />
         }
         renderItem={({ item }: { item: Exercise }) => (
-          <View style={styles.cardWrap}>
+          <View style={exerciseCardWrapperStyle}>
             <ExerciseCard
               exercise={item}
               onPress={() =>
                 router.push({
-                  pathname: ROUTES.app.exerciseDetail,
+                  pathname: ROUTES.app.adminCatalogExerciseDetail,
                   params: { id: String(item.id) },
                 })
               }
@@ -491,6 +535,17 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
+  gifFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  gifFilterCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
   paginationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -549,7 +604,12 @@ const styles = StyleSheet.create({
   syncButtonLabel: {
     color: '#061018',
   },
+  exerciseColumnWrapper: {
+    gap: 12,
+    justifyContent: 'flex-start',
+  },
   cardWrap: {
+    flex: 1,
     marginBottom: 14,
   },
   pressed: {

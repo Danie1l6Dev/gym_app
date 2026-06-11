@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
@@ -20,9 +20,13 @@ function formatDateInput(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function createDefaultEndDate(): string {
+function createMembershipEndDate(durationDays?: number | null): string {
+  if (!durationDays || durationDays <= 0) {
+    return '';
+  }
+
   const date = new Date();
-  date.setDate(date.getDate() + 30);
+  date.setDate(date.getDate() + durationDays);
   return formatDateInput(date);
 }
 
@@ -61,7 +65,6 @@ export default function CreateUserScreen() {
   });
   const [roleSlug, setRoleSlug] = useState<'admin' | 'user'>(() => roleSlugFromParams(params.role));
   const [membershipPlanType, setMembershipPlanType] = useState('monthly');
-  const [membershipEndsAt, setMembershipEndsAt] = useState(createDefaultEndDate());
   const [membershipNotes, setMembershipNotes] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
   const { items: membershipTypes } = useMembershipTypes();
@@ -71,6 +74,18 @@ export default function CreateUserScreen() {
   );
   const isUserRole = roleSlug === 'user';
   const subjectLabel = isUserRole ? 'usuario' : 'administrador';
+  const effectiveMembershipPlanType = useMemo(() => {
+    const currentPlanExists = activeMembershipTypes.some(
+      (membershipType) => membershipType.code === membershipPlanType
+    );
+
+    return currentPlanExists ? membershipPlanType : activeMembershipTypes[0]?.code ?? '';
+  }, [activeMembershipTypes, membershipPlanType]);
+  const selectedMembershipType = useMemo(
+    () => activeMembershipTypes.find((membershipType) => membershipType.code === effectiveMembershipPlanType) ?? null,
+    [activeMembershipTypes, effectiveMembershipPlanType]
+  );
+  const membershipEndsAt = createMembershipEndDate(selectedMembershipType?.duration_days);
 
   const canSubmit = useMemo(
     () => {
@@ -86,27 +101,13 @@ export default function CreateUserScreen() {
       }
 
       if (isUserRole) {
-        return Boolean(membershipPlanType && membershipEndsAt.trim() && activeMembershipTypes.length > 0);
+        return Boolean(effectiveMembershipPlanType && membershipEndsAt.trim() && activeMembershipTypes.length > 0);
       }
 
       return true;
     },
-    [activeMembershipTypes.length, isUserRole, membershipEndsAt, membershipPlanType, values]
+    [activeMembershipTypes.length, effectiveMembershipPlanType, isUserRole, membershipEndsAt, values]
   );
-
-  useEffect(() => {
-    if (!isUserRole || activeMembershipTypes.length === 0) {
-      return;
-    }
-
-    const currentPlanExists = activeMembershipTypes.some(
-      (membershipType) => membershipType.code === membershipPlanType
-    );
-
-    if (!currentPlanExists) {
-      setMembershipPlanType(activeMembershipTypes[0].code);
-    }
-  }, [activeMembershipTypes, isUserRole, membershipPlanType]);
 
   function updateField(field: FieldKey, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -123,6 +124,11 @@ export default function CreateUserScreen() {
       return;
     }
 
+    if (values.password.length < 8) {
+      setValidationError('La contrasena debe tener al menos 8 caracteres.');
+      return;
+    }
+
     try {
       setValidationError(null);
       const created = await submit({
@@ -133,7 +139,7 @@ export default function CreateUserScreen() {
         password: values.password,
         password_confirmation: values.passwordConfirmation,
         is_active: true,
-        membership_plan_type: isUserRole ? membershipPlanType : null,
+        membership_plan_type: isUserRole ? effectiveMembershipPlanType : null,
         membership_ends_at: isUserRole ? membershipEndsAt : null,
         membership_notes: isUserRole ? membershipNotes.trim() || null : null,
       });
@@ -270,7 +276,7 @@ export default function CreateUserScreen() {
                 </TextBlock>
                 <View style={styles.planRow}>
                   {activeMembershipTypes.map((option) => {
-                    const selected = membershipPlanType === option.code;
+                    const selected = effectiveMembershipPlanType === option.code;
 
                     return (
                       <Pressable
@@ -290,7 +296,7 @@ export default function CreateUserScreen() {
                           {option.name}
                         </TextBlock>
                         <TextBlock variant="caption" color="subtle">
-                          {Number(option.price).toLocaleString('es-CO')} COP
+                          {Number(option.price).toLocaleString('es-CO')} COP · {option.duration_days} dias
                         </TextBlock>
                       </Pressable>
                     );
@@ -309,10 +315,9 @@ export default function CreateUserScreen() {
                 </TextBlock>
                 <TextInput
                   value={membershipEndsAt}
-                  onChangeText={setMembershipEndsAt}
+                  editable={false}
                   placeholder="YYYY-MM-DD"
                   placeholderTextColor={theme.colors.textSubtle}
-                  keyboardType="numbers-and-punctuation"
                   style={[
                     styles.input,
                     {
@@ -428,10 +433,14 @@ const styles = StyleSheet.create({
   },
   planRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
   },
   planPill: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: '31%',
+    minWidth: 120,
+    minHeight: 82,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     paddingVertical: 12,

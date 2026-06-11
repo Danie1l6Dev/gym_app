@@ -14,5 +14,6 @@ export const ADMIN_TAB_ITEMS = [
   { name: 'users', label: 'Usuarios', href: ROUTES.app.adminUsers },
   { name: 'exercises', label: 'Ejercicios', href: ROUTES.app.adminExercises },
   { name: 'memberships', label: 'Membresías', href: ROUTES.app.adminMemberships },
+  { name: 'expiring', label: 'Vencimientos', href: ROUTES.app.adminExpiringMemberships },
   { name: 'manage', label: 'Administrar', href: ROUTES.app.adminManage },
 ] as const;

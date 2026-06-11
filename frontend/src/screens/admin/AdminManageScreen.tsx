@@ -30,7 +30,7 @@ const MANAGE_OPTIONS: ManageOption[] = [
     label: 'Usuarios',
     description: 'Gestionar cuentas y permisos',
     icon: 'account-multiple',
-    route: 'manage/users',
+    route: ROUTES.app.adminUsers,
     color: '#4ECDC4',
   },
   {
@@ -38,7 +38,7 @@ const MANAGE_OPTIONS: ManageOption[] = [
     label: 'Ejercicios',
     description: 'Administrar ejercicios del sistema',
     icon: 'dumbbell',
-    route: 'manage/exercises',
+    route: ROUTES.app.adminExercises,
     color: '#45B7D1',
   },
   {
@@ -46,7 +46,7 @@ const MANAGE_OPTIONS: ManageOption[] = [
     label: 'Rutinas',
     description: 'Gestionar rutinas de entrenamiento',
     icon: 'playlist-plus',
-    route: 'manage/routines',
+    route: ROUTES.app.routineCreate,
     color: '#FFA502',
   },
 ];

@@ -76,8 +76,11 @@ class UserController extends Controller
 
             if ($roleSlug === 'user') {
                 $planType = $data['membership_plan_type'] ?? 'monthly';
-                $endsAt = Carbon::parse($data['membership_ends_at']);
                 $startsAt = Carbon::today();
+                $membershipType = MembershipType::query()
+                    ->where('code', $planType)
+                    ->first();
+                $endsAt = $startsAt->copy()->addDays($membershipType?->duration_days ?? 0);
 
                 Membership::create([
                     'user_id' => $user->id,
@@ -85,7 +88,7 @@ class UserController extends Controller
                     'starts_at' => $startsAt->toDateString(),
                     'ends_at' => $endsAt->toDateString(),
                     'status' => 'active',
-                    'price' => $this->resolveMembershipPrice($planType),
+                    'price' => (float) ($membershipType?->price ?? 0),
                     'paid_at' => now(),
                     'notes' => $data['membership_notes'] ?? null,
                 ]);
@@ -94,7 +97,7 @@ class UserController extends Controller
             return $user;
         });
 
-        return UserResource::make($user->load(['role', 'latestMembership']))
+        return UserResource::make($user->load(['role', 'latestMembership.type']))
             ->additional(['message' => 'Usuario creado correctamente.'])
             ->response()
             ->setStatusCode(201);
@@ -166,13 +169,6 @@ class UserController extends Controller
             'data' => null,
             'message' => 'Usuario eliminado correctamente.',
         ]);
-    }
-
-    private function resolveMembershipPrice(string $planType): float
-    {
-        return (float) (MembershipType::query()
-            ->where('code', $planType)
-            ->value('price') ?? 0);
     }
 
     private function resolveRoleId(array $data): int

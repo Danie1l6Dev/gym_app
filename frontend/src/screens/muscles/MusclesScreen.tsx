@@ -16,7 +16,7 @@ import { MuscleCard } from '@/components/MuscleCard';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS, ROUTES } from '@/constants';
-import { useMuscles } from '@/hooks';
+import { useAuth, useMuscles } from '@/hooks';
 import type { Muscle } from '@/interfaces/muscle';
 import { useTheme } from '@/hooks/use-theme';
 import { getMuscleDisplayName, getMuscleSubtext } from '@/utils/fitness';
@@ -30,10 +30,14 @@ function getColumns(width: number) {
 export default function MusclesScreen() {
   const theme = useTheme();
   const { width } = useWindowDimensions();
+  const { user } = useAuth();
   const { items, loading, loadingPage, refreshing, error, meta, page, lastPage, refresh, retry, goToPage } =
     useMuscles({ perPage: 9 });
   const columns = getColumns(width);
   const subtitle = 'Explora grupos musculares y abre sus ejercicios.';
+  const isAdmin = user?.role?.slug === 'admin';
+  const backHref = isAdmin ? ROUTES.app.adminDashboard : ROUTES.app.explore;
+  const exercisesHref = isAdmin ? ROUTES.app.adminCatalogExercises : ROUTES.app.exercises;
 
   const pageOptions = useMemo(() => {
     const candidates = new Set<number>([1, lastPage, page - 2, page - 1, page, page + 1, page + 2]);
@@ -52,7 +56,7 @@ export default function MusclesScreen() {
           title="Musculos"
           subtitle={subtitle}
           showBack
-          backHref={ROUTES.app.explore}
+          backHref={backHref}
           backVariant="button-right"
         />
 
@@ -124,6 +128,7 @@ export default function MusclesScreen() {
       </View>
     ),
     [
+      backHref,
       lastPage,
       loadingPage,
       meta?.total,
@@ -194,7 +199,7 @@ export default function MusclesScreen() {
                 accentColor={theme.colors.primary}
                 onPress={() =>
                   router.push({
-                    pathname: ROUTES.app.exercises,
+                    pathname: exercisesHref as never,
                     params: {
                       muscleId: String(item.id),
                       muscleName: displayName,

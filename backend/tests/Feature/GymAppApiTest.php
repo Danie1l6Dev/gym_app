@@ -311,7 +311,6 @@ class GymAppApiTest extends TestCase
             'password_confirmation' => 'Password123!',
             'is_active' => true,
             'membership_plan_type' => 'monthly',
-            'membership_ends_at' => now()->addMonth()->toDateString(),
             'membership_notes' => 'Alta creada desde el formulario de admin.',
         ]);
 
@@ -322,8 +321,11 @@ class GymAppApiTest extends TestCase
             ->assertJsonPath('data.latest_membership.plan_label', 'Mensual');
 
         $createdUser = User::query()->where('email', 'nuevo.usuario@gymapp.com')->firstOrFail();
+        $membership = $createdUser->latestMembership;
+
         $this->assertSame(1, Membership::query()->where('user_id', $createdUser->id)->count());
-        $this->assertSame('monthly', $createdUser->latestMembership?->plan_type);
+        $this->assertSame('monthly', $membership?->plan_type);
+        $this->assertSame(now()->addDays(30)->toDateString(), $membership?->ends_at?->toDateString());
     }
 
     public function test_admin_can_create_admin_without_membership_fields(): void

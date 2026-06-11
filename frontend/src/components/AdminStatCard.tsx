@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { DIMENSIONS } from '@/constants';
 import { useTheme } from '@/hooks/use-theme';
@@ -9,15 +9,16 @@ type AdminStatCardProps = {
   value: string;
   detail?: string;
   tone?: 'primary' | 'secondary' | 'warning';
+  style?: StyleProp<ViewStyle>;
 };
 
-export function AdminStatCard({ label, value, detail, tone = 'primary' }: AdminStatCardProps) {
+export function AdminStatCard({ label, value, detail, tone = 'primary', style }: AdminStatCardProps) {
   const theme = useTheme();
   const toneColor =
     tone === 'primary' ? theme.colors.primary : tone === 'secondary' ? theme.colors.secondary : theme.colors.accent;
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+    <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }, style]}>
       <View style={[styles.dot, { backgroundColor: toneColor }]} />
       <TextBlock variant="caption" color="muted">
         {label}

@@ -9,7 +9,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS, ROUTES } from '@/constants';
-import { usePaginatedExercises } from '@/hooks';
+import { useAuth, usePaginatedExercises } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
 import type { Exercise } from '@/interfaces/exercise';
 
@@ -21,6 +21,7 @@ type ExercisesParams = {
 export default function ExercisesScreen() {
   const theme = useTheme();
   const { width } = useWindowDimensions();
+  const { user } = useAuth();
   const params = useLocalSearchParams<ExercisesParams>();
   const listRef = useRef<FlatList<Exercise> | null>(null);
   const [onlyWithGif, setOnlyWithGif] = useState(true);
@@ -86,13 +87,19 @@ export default function ExercisesScreen() {
     ? `Filtrando ejercicios para ${params.muscleName}.`
     : 'Catálogo visual de ejercicios con GIF y detalle.';
 
+  const isAdmin = user?.role?.slug === 'admin';
+  const backHref = isAdmin
+    ? (params.muscleId ? ROUTES.app.adminMuscles : ROUTES.app.adminDashboard)
+    : (params.muscleId ? ROUTES.app.muscles : ROUTES.app.explore);
+  const detailHref = isAdmin ? ROUTES.app.adminCatalogExerciseDetail : ROUTES.app.exerciseDetail;
+
   const header = (
     <View style={styles.headerStack}>
       <AppHeader
         title="Ejercicios"
         subtitle={subtitle}
         showBack
-        backHref={params.muscleId ? ROUTES.app.muscles : ROUTES.app.explore}
+        backHref={backHref}
         backVariant="button-right"
       />
 
@@ -298,7 +305,7 @@ export default function ExercisesScreen() {
               exercise={item}
               onPress={() =>
                 router.push({
-                  pathname: ROUTES.app.exerciseDetail,
+                  pathname: detailHref,
                   params: {
                     id: String(item.id),
                   },

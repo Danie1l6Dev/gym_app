@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
-import { DIMENSIONS } from '@/constants';
+import { DIMENSIONS, ROUTES } from '@/constants';
 import { useAuth, useExercise } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -67,11 +67,12 @@ export default function ExerciseDetailScreen() {
   const { user } = useAuth();
   const { id } = useLocalSearchParams<ExerciseParams>();
   const { item, loading, error, retry } = useExercise(id);
+  const backHref = user?.role?.slug === 'admin' ? ROUTES.app.adminCatalogExercises : undefined;
 
   if (loading && !item) {
     return (
       <ScreenContainer>
-        <AppHeader title="Detalle" subtitle="Cargando ejercicio" showBack />
+        <AppHeader title="Detalle" subtitle="Cargando ejercicio" showBack backHref={backHref} />
         <LoadingSpinner label="Preparando detalle" />
       </ScreenContainer>
     );
@@ -80,7 +81,7 @@ export default function ExerciseDetailScreen() {
   if (error || !item) {
     return (
       <ScreenContainer>
-        <AppHeader title="Detalle" subtitle="Error al abrir ejercicio" showBack />
+        <AppHeader title="Detalle" subtitle="Error al abrir ejercicio" showBack backHref={backHref} />
         <EmptyState
           title="No pudimos cargar el ejercicio"
           description={error ?? 'No encontramos la informacion solicitada.'}
@@ -110,7 +111,7 @@ export default function ExerciseDetailScreen() {
 
   return (
     <ScreenContainer>
-      <AppHeader title="Detalle" subtitle={title} showBack />
+      <AppHeader title="Detalle" subtitle={title} showBack backHref={backHref} />
 
       <View
         style={[
