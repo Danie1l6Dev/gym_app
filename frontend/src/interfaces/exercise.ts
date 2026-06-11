@@ -10,6 +10,9 @@ export interface Exercise {
   display_name?: string | null;
   description_en?: string | null;
   description_es?: string | null;
+  instructions_original?: string[] | string | null;
+  instructions_es?: string[] | string | null;
+  has_instructions_es?: boolean;
   display_description?: string | null;
   gif_url?: string | null;
   difficulty?: string | number | null;

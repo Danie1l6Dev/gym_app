@@ -27,6 +27,7 @@ class ExerciseResource extends JsonResource
             'description_es' => $this->description_es ?: $this->description_en,
             'instructions_original' => $this->instructions_original,
             'instructions_es' => $this->instructions_es ?: $this->instructions_original,
+            'has_instructions_es' => $this->hasInstructionTranslation($this->instructions_es),
             'display_description' => $this->display_description,
             'muscle' => MuscleResource::make($this->whenLoaded('muscle')),
             'pivot' => $this->whenPivotLoaded('routine_exercises', function () {
@@ -42,5 +43,24 @@ class ExerciseResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
+    }
+
+    private function hasInstructionTranslation(mixed $instructions): bool
+    {
+        if (is_string($instructions)) {
+            return trim($instructions) !== '';
+        }
+
+        if (! is_array($instructions)) {
+            return false;
+        }
+
+        foreach ($instructions as $instruction) {
+            if (is_string($instruction) && trim($instruction) !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
