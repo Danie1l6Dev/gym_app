@@ -88,7 +88,13 @@ export default function ExercisesScreen() {
 
   const header = (
     <View style={styles.headerStack}>
-      <AppHeader title="Ejercicios" subtitle={subtitle} showBack={Boolean(params.muscleId)} />
+      <AppHeader
+        title="Ejercicios"
+        subtitle={subtitle}
+        showBack
+        backHref={params.muscleId ? ROUTES.app.muscles : ROUTES.app.explore}
+        backVariant="button-right"
+      />
 
       <View
         style={[
