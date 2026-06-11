@@ -3,11 +3,13 @@ import { useMemo, useState } from 'react';
 import {
   FlatList,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -322,9 +324,11 @@ function EmptyRoutines({ onCrear }: { onCrear: () => void }) {
 }
 
 export default function RoutinesScreen() {
+  const { width } = useWindowDimensions();
   const { user } = useAuth();
   const { items, loading, refreshing, error, refresh, retry } = useRoutines();
   const { submit: deleteRoutineSubmit, loading: deleting, error: deleteError } = useDeleteRoutine();
+  const isCompact = width < 768;
   const [activeTab, setActiveTab] = useState<RoutineTab>('recommended');
   const [modalVisible, setModalVisible] = useState(false);
   const [deletingRoutineId, setDeletingRoutineId] = useState<string | null>(null);
@@ -416,8 +420,8 @@ export default function RoutinesScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View>
-            <View style={styles.headerRow}>
-              <View>
+            <View style={[styles.headerRow, isCompact && styles.headerRowCompact]}>
+              <View style={styles.headerCopy}>
                 <Text style={styles.eyebrow}>GYM PONTE PIÃ‘UO</Text>
                 <Text style={styles.pageTitle}>Rutinas</Text>
                 <Text style={styles.greeting}>Explora recomendaciones y tus rutinas personales.</Text>
@@ -426,13 +430,14 @@ export default function RoutinesScreen() {
                 onPress={() => router.push(ROUTES.app.routineCreate)}
                 style={({ hovered }) => [
                   styles.createBtn,
+                  isCompact && styles.createBtnCompact,
                   {
                     shadowColor: hovered ? 'rgba(109,40,217,0.52)' : 'rgba(109,40,217,0.32)',
                     shadowOpacity: 0.5,
                     shadowRadius: hovered ? 36 : 22,
                     shadowOffset: { width: 0, height: hovered ? -1 : 0 },
                     elevation: hovered ? 10 : 6,
-                    transform: hovered ? [{ translateY: -1 }] : [],
+                    transform: hovered && Platform.OS === 'web' ? [{ translateY: -1 }] : [],
                   },
                 ]}>
                 <MaterialCommunityIcons name="plus" size={16} color="#fff" />
@@ -553,6 +558,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 32,
   },
+  headerRowCompact: {
+    flexDirection: 'column',
+    gap: 16,
+  },
+  headerCopy: {
+    flexShrink: 1,
+  },
   eyebrow: {
     fontSize: 10,
     fontFamily: TYPOGRAPHY.fonts.mono,
@@ -584,6 +596,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#5b21b6',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(139,92,246,0.5)',
+  },
+  createBtnCompact: {
+    width: '100%',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
   },
   createBtnText: {
     color: '#fff',

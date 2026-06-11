@@ -21,6 +21,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { SearchBar } from '@/components/SearchBar';
 import { TextBlock } from '@/components/TextBlock';
+import { TopBar } from '@/components/TopBar';
 import { ROUTES } from '@/constants';
 import { useAuth, useCreateRoutine, useMuscles, usePaginatedExercises, useRoutine, useUpdateRoutine } from '@/hooks';
 import type { Exercise } from '@/interfaces/exercise';
