@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+import { AppBackground } from '@/components/AppBackground';
 import { TopBar } from '@/components/TopBar';
 import { ROUTES } from '@/constants';
 import { TYPOGRAPHY } from '@/theme';
@@ -27,6 +28,7 @@ const SECTIONS = [
 export default function ExploreScreen() {
   return (
     <SafeAreaView style={styles.safe}>
+      <AppBackground />
       <TopBar />
 
       <ScrollView
@@ -108,7 +110,7 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#020204',
+    backgroundColor: '#020203',
   },
 
   scroll: {
@@ -149,7 +151,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 28,
     marginBottom: 32,
-    backgroundColor: 'rgba(139,92,246,0.06)',
+    backgroundColor: '#090910',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(139,92,246,0.2)',
     position: 'relative',

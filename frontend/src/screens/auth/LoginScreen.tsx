@@ -19,7 +19,7 @@ import { TYPOGRAPHY } from '@/theme';
 const FEATURE_ITEMS = [
   { icon: '✓', label: 'Control de acceso al gym' },
   { icon: '◎', label: 'Gestión de miembros' },
-  { icon: '▥', label: 'Reportes de asistencia' },
+  { icon: '▥', label: 'Estructuración de Rutinas' },
 ];
 
 export default function LoginScreen() {

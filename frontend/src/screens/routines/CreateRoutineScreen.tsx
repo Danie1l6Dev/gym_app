@@ -16,6 +16,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+import { AppBackground } from '@/components/AppBackground';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { SearchBar } from '@/components/SearchBar';
@@ -504,6 +505,7 @@ export default function CreateRoutineScreen() {
   if (isEditing && routineLoading) {
     return (
       <SafeAreaView style={styles.safe}>
+        <AppBackground />
         <TopBar />
         <AppHeader title="Editar rutina" subtitle="Cargando datos de la rutina" showBack />
         <LoadingSpinner label="Preparando rutina" />
@@ -514,6 +516,7 @@ export default function CreateRoutineScreen() {
   if (isEditing && routineError && !routineToEdit) {
     return (
       <SafeAreaView style={styles.safe}>
+        <AppBackground />
         <TopBar />
         <View style={styles.loadingWrap}>
           <AppHeader title="Editar rutina" subtitle="No pudimos cargar la rutina" showBack />
@@ -532,6 +535,7 @@ export default function CreateRoutineScreen() {
   if (musclesLoading && muscles.length === 0) {
     return (
       <SafeAreaView style={styles.safe}>
+        <AppBackground />
         <TopBar />
         <AppHeader title="Crear rutina" subtitle="Cargando catálogo de ejercicios" showBack />
         <LoadingSpinner label="Preparando músculos" />
@@ -541,6 +545,7 @@ export default function CreateRoutineScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <AppBackground />
       <TopBar />
       <ScrollView
         ref={scrollViewRef}
@@ -1111,7 +1116,7 @@ export default function CreateRoutineScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#020204',
+    backgroundColor: '#020203',
   },
   loadingWrap: {
     flex: 1,
@@ -1191,7 +1196,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(139,92,246,0.28)',
     borderLeftWidth: 3,
     borderLeftColor: '#7c3aed',
-    backgroundColor: 'rgba(109,40,217,0.1)',
+    backgroundColor: '#090910',
     paddingVertical: 28,
     paddingHorizontal: 32,
     gap: 10,

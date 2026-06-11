@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
+import { AppBackground } from '@/components/AppBackground';
 import { TopBar } from '@/components/TopBar';
 import { useExercises, useMuscles, useRoutines } from '@/hooks';
 import { useAuth } from '@/hooks/use-auth';
@@ -151,6 +152,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppBackground />
       <TopBar />
 
       <ScrollView
@@ -206,7 +208,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#020204',
+    backgroundColor: '#020203',
   },
 
   scroll: {
@@ -248,7 +250,7 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     paddingHorizontal: 36,
     marginBottom: 24,
-    backgroundColor: 'rgba(109,40,217,0.06)',
+    backgroundColor: '#090910',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(139,92,246,0.22)',
     borderLeftWidth: 3,

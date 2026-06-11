@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+import { AppBackground } from '@/components/AppBackground';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { TopBar } from '@/components/TopBar';
 import { ROUTES } from '@/constants';
@@ -375,6 +376,7 @@ export default function RoutinesScreen() {
   if (loading && items.length === 0) {
     return (
       <SafeAreaView style={styles.safe}>
+        <AppBackground />
         <LoadingSpinner label="Cargando rutinas" />
       </SafeAreaView>
     );
@@ -383,6 +385,7 @@ export default function RoutinesScreen() {
   if (error && items.length === 0) {
     return (
       <SafeAreaView style={styles.safe}>
+        <AppBackground />
         <View style={styles.errorWrap}>
           <View style={styles.emptyCard}>
             <View style={styles.emptyIconWrap}>
@@ -401,6 +404,7 @@ export default function RoutinesScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <AppBackground />
       <TopBar />
 
       <FlatList
@@ -522,7 +526,7 @@ export default function RoutinesScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#020204',
+    backgroundColor: '#020203',
   },
   errorWrap: {
     flex: 1,
@@ -592,7 +596,7 @@ const styles = StyleSheet.create({
     paddingVertical: 28,
     paddingHorizontal: 32,
     marginBottom: 20,
-    backgroundColor: 'rgba(109,40,217,0.06)',
+    backgroundColor: '#090910',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(139,92,246,0.2)',
     borderLeftWidth: 3,
