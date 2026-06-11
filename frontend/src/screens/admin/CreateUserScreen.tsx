@@ -124,6 +124,11 @@ export default function CreateUserScreen() {
       return;
     }
 
+    if (values.password.length < 8) {
+      setValidationError('La contrasena debe tener al menos 8 caracteres.');
+      return;
+    }
+
     try {
       setValidationError(null);
       const created = await submit({

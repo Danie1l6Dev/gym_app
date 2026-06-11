@@ -196,6 +196,11 @@ export default function AdminUserFormScreen() {
       return;
     }
 
+    if (values.password && values.password.length < 8) {
+      setValidationError('La contrasena debe tener al menos 8 caracteres.');
+      return;
+    }
+
     try {
       setSaving(true);
       setValidationError(null);
