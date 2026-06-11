@@ -59,6 +59,8 @@ export default function AdminTabsLayout() {
       <Tabs.Screen
         name="users"
         options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
           title: ADMIN_TAB_ITEMS[1].label,
           tabBarIcon: ({ color }) => renderTabIcon('account-group-outline', ADMIN_TAB_ITEMS[1].label, color),
         }}
@@ -66,6 +68,8 @@ export default function AdminTabsLayout() {
       <Tabs.Screen
         name="exercises"
         options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
           title: ADMIN_TAB_ITEMS[2].label,
           tabBarIcon: ({ color }) => renderTabIcon('dumbbell', ADMIN_TAB_ITEMS[2].label, color),
         }}

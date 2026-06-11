@@ -25,6 +25,7 @@ type TabBarProps = {
     {
       options: {
         href?: string | null;
+        tabBarButton?: (() => null) | undefined;
         tabBarAccessibilityLabel?: string;
         tabBarButtonTestID?: string;
       };
@@ -86,6 +87,8 @@ export default function AdminTabsLayout() {
       <Tabs.Screen
         name="users"
         options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
           title: ADMIN_TAB_ITEMS[1].label,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="account-group-outline" size={size ?? 22} color={color} />
@@ -95,6 +98,8 @@ export default function AdminTabsLayout() {
       <Tabs.Screen
         name="exercises"
         options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
           title: ADMIN_TAB_ITEMS[2].label,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="dumbbell" size={size ?? 22} color={color} />
@@ -150,7 +155,7 @@ function AdminTabBar({
 }) {
   const visibleRoutes = state.routes
     .map((route, routeIndex) => ({ route, routeIndex }))
-    .filter(({ route }) => descriptors[route.key]?.options.href !== null);
+    .filter(({ route }) => descriptors[route.key]?.options.tabBarButton === undefined);
 
   return (
     <View

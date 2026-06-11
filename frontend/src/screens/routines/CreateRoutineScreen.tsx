@@ -20,7 +20,6 @@ import { EmptyState } from '@/components/EmptyState';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { SearchBar } from '@/components/SearchBar';
 import { TextBlock } from '@/components/TextBlock';
-import { TopBar } from '@/components/TopBar';
 import { ROUTES } from '@/constants';
 import { useAuth, useCreateRoutine, useMuscles, usePaginatedExercises, useRoutine, useUpdateRoutine } from '@/hooks';
 import type { Exercise } from '@/interfaces/exercise';
@@ -202,6 +201,7 @@ export default function CreateRoutineScreen() {
   const isEditing = Boolean(routineId);
   const theme = ROUTINE_THEME;
   const { width } = useWindowDimensions();
+  const isCompactLayout = width < 600;
   const { user } = useAuth();
   const {
     item: routineToEdit,
@@ -504,7 +504,6 @@ export default function CreateRoutineScreen() {
   if (isEditing && routineLoading) {
     return (
       <SafeAreaView style={styles.safe}>
-        <TopBar />
         <AppHeader title="Editar rutina" subtitle="Cargando datos de la rutina" showBack />
         <LoadingSpinner label="Preparando rutina" />
       </SafeAreaView>
@@ -514,7 +513,6 @@ export default function CreateRoutineScreen() {
   if (isEditing && routineError && !routineToEdit) {
     return (
       <SafeAreaView style={styles.safe}>
-        <TopBar />
         <View style={styles.loadingWrap}>
           <AppHeader title="Editar rutina" subtitle="No pudimos cargar la rutina" showBack />
           <EmptyState
@@ -532,7 +530,6 @@ export default function CreateRoutineScreen() {
   if (musclesLoading && muscles.length === 0) {
     return (
       <SafeAreaView style={styles.safe}>
-        <TopBar />
         <AppHeader title="Crear rutina" subtitle="Cargando catálogo de ejercicios" showBack />
         <LoadingSpinner label="Preparando músculos" />
       </SafeAreaView>
@@ -541,7 +538,6 @@ export default function CreateRoutineScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <TopBar />
       <ScrollView
         ref={scrollViewRef}
         style={styles.scroll}
@@ -667,8 +663,8 @@ export default function CreateRoutineScreen() {
             styles.sectionCard,
             { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
           ]}>
-            <View style={styles.sectionHeader}>
-              <View>
+            <View style={[styles.sectionHeader, isCompactLayout && styles.sectionHeaderCompact]}>
+              <View style={styles.muscleHeaderText}>
                 <TextBlock variant="title">
                   {selectedMuscle ? getMuscleDisplayName(selectedMuscle) : '1. Elige un músculo'}
                 </TextBlock>
@@ -680,10 +676,11 @@ export default function CreateRoutineScreen() {
                 onPress={() => setMuscleModalVisible(true)}
                 style={({ pressed }) => [
                   styles.muscleButton,
+                  isCompactLayout && styles.muscleButtonFull,
                   { backgroundColor: theme.colors.primary },
                   pressed && styles.pressed,
                 ]}>
-                <TextBlock variant="button" style={styles.muscleButtonLabel}>
+                <TextBlock variant="button" numberOfLines={1} adjustsFontSizeToFit style={styles.muscleButtonLabel}>
                   {selectedMuscle ? 'Cambiar músculo' : 'Elegir músculo'}
                 </TextBlock>
               </Pressable>
@@ -1281,6 +1278,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
+  sectionHeaderCompact: {
+    alignItems: 'stretch',
+    flexDirection: 'column',
+  },
+  muscleHeaderText: {
+    flex: 1,
+    minWidth: 0,
+  },
   muscleGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1470,8 +1475,12 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 6,
   },
+  muscleButtonFull: {
+    width: '100%',
+  },
   muscleButtonLabel: {
     color: '#ffffff',
+    textAlign: 'center',
   },
 
   submitButton: {
