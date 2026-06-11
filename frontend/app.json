@@ -21,7 +21,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/LogGym3.png"
+      "favicon": "./assets/images/gym2.jpg"
     },
     "plugins": [
       "expo-router",
