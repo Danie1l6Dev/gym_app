@@ -1,12 +1,66 @@
-const DEFAULT_API_BASE_URL = 'http://localhost:8000';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
+const DEFAULT_API_PORT = '8000';
+const DEFAULT_API_BASE_URL = `http://localhost:${DEFAULT_API_PORT}`;
+const AUTO_API_BASE_URL = 'auto';
 
 function normalizeApiBaseUrl(value: string) {
   return value.trim().replace(/\/$/, '');
 }
 
-const configuredApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+function resolveExpoHost() {
+  const hostCandidates = [
+    Constants.expoConfig?.hostUri,
+    Constants.manifest2?.extra?.expoClient?.hostUri,
+    Constants.linkingUri,
+  ];
 
-export const API_BASE_URL = normalizeApiBaseUrl(configuredApiBaseUrl || DEFAULT_API_BASE_URL);
+  for (const candidate of hostCandidates) {
+    if (!candidate || typeof candidate !== 'string') {
+      continue;
+    }
+
+    const sanitized = candidate
+      .replace(/^[a-z]+:\/\//i, '')
+      .replace(/\/.*$/, '')
+      .trim();
+
+    if (!sanitized) {
+      continue;
+    }
+
+    const [host] = sanitized.split(':');
+
+    if (host) {
+      return host;
+    }
+  }
+
+  return null;
+}
+
+function resolveDefaultApiBaseUrl() {
+  if (Platform.OS === 'web') {
+    return DEFAULT_API_BASE_URL;
+  }
+
+  const expoHost = resolveExpoHost();
+
+  if (!expoHost) {
+    return DEFAULT_API_BASE_URL;
+  }
+
+  return `http://${expoHost}:${DEFAULT_API_PORT}`;
+}
+
+const configuredApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+const shouldAutoResolveApiBaseUrl =
+  !configuredApiBaseUrl || configuredApiBaseUrl.trim().toLowerCase() === AUTO_API_BASE_URL;
+
+export const API_BASE_URL = normalizeApiBaseUrl(
+  shouldAutoResolveApiBaseUrl ? resolveDefaultApiBaseUrl() : configuredApiBaseUrl
+);
 export const API_TIMEOUT_MS = 15000;
 
 export const STORAGE_KEYS = {

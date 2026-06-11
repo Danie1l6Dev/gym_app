@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Image } from 'react-native';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   TextInput,
   useWindowDimensions,
@@ -58,10 +59,18 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={[styles.scrollContent, !isWide && styles.mobileScrollContent]}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={[styles.keyboardWrapper, isWide ? styles.desktopLayout : styles.mobileLayout]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardAvoidingView}>
+        <ScrollView
+          bounces={false}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isWide ? styles.desktopScrollContent : styles.mobileScrollContent,
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={!isWide}>
+          <View style={[styles.keyboardWrapper, isWide ? styles.desktopLayout : styles.mobileLayout]}>
           <View style={[styles.brandPanel, !isWide && styles.mobileBrandPanel]}>
             {/* <View style={styles.logoTile}>
               <TextBlock style={styles.logoMark}>GP</TextBlock>
@@ -268,14 +277,16 @@ export default function LoginScreen() {
               <TextBlock style={styles.formFooter}>GYM-PP-2026 · Ponte Piñuo</TextBlock>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Ayuda"
         style={({ hovered, pressed }) => [
           styles.helpButton,
+          !isWide && styles.mobileHelpButton,
           hovered && styles.helpButtonHover,
           pressed && styles.optionPressed,
         ]}>
@@ -292,18 +303,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#020203',
   },
-  scrollContent: {
+  keyboardAvoidingView: {
     flex: 1,
+  },
+  scrollContent: {
     backgroundColor: '#020203',
   },
+  desktopScrollContent: {
+    flexGrow: 1,
+  },
   mobileScrollContent: {
-    padding: 18,
+    flexGrow: 1,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 96,
   },
   keyboardWrapper: {
     width: '100%',
-    flex: 1,
   },
   desktopLayout: {
+    flex: 1,
     flexDirection: 'row',
   },
   mobileLayout: {
@@ -321,11 +340,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   mobileBrandPanel: {
+    flex: 0,
     minHeight: 0,
     borderRightWidth: 0,
     borderRadius: 8,
-    paddingHorizontal: 26,
-    paddingVertical: 30,
+    paddingHorizontal: 22,
+    paddingVertical: 24,
+    justifyContent: 'flex-start',
   },
   logoTile: {
     width: 60,
@@ -375,7 +396,6 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 32,
     maxWidth: 512,
-    flex: 1,
   },
   featureRow: {
     minHeight: 44,
@@ -464,9 +484,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#020203',
   },
   mobileFormPanel: {
+    flex: 0,
     minHeight: 0,
     paddingHorizontal: 0,
     paddingVertical: 0,
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
   },
   formColumn: {
     width: '100%',
@@ -834,6 +857,10 @@ const styles = StyleSheet.create({
         elevation: 4,
       },
     }),
+  },
+  mobileHelpButton: {
+    right: 18,
+    bottom: 18,
   },
   helpButtonHover: {
     borderColor: '#C4B5FD',
