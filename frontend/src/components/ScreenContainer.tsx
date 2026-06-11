@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: DIMENSIONS.screenPadding,
     paddingTop: DIMENSIONS.screenPadding,
-    paddingBottom: DIMENSIONS.screenPadding * 1.5,
+    paddingBottom: 0,
   },
   inner: {
     width: '100%',
