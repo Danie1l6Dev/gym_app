@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { DIMENSIONS } from '@/constants';
@@ -13,6 +13,7 @@ type EmptyStateProps = {
   footer?: ReactNode;
   actionLabel?: string;
   onAction?: () => void;
+  containerStyle?: StyleProp<ViewStyle>;
 };
 
 export function EmptyState({
@@ -22,6 +23,7 @@ export function EmptyState({
   footer,
   actionLabel,
   onAction,
+  containerStyle,
 }: EmptyStateProps) {
   const theme = useTheme();
 
@@ -30,6 +32,7 @@ export function EmptyState({
       style={[
         styles.container,
         { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+        containerStyle,
       ]}>
       <View style={[styles.iconBadge, { backgroundColor: theme.colors.surfaceElevated }]}>
         <MaterialCommunityIcons name={icon} size={28} color={theme.colors.primary} />

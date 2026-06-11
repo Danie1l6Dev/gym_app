@@ -5,25 +5,27 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Text,
   TextInput,
   Switch,
   View,
+  useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { AppHeader } from '@/components/AppHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { SearchBar } from '@/components/SearchBar';
-import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
-import { DIMENSIONS, ROUTES } from '@/constants';
+import { TopBar } from '@/components/TopBar';
+import { ROUTES } from '@/constants';
 import { useAuth, useCreateRoutine, useMuscles, usePaginatedExercises } from '@/hooks';
-import { useTheme } from '@/hooks/use-theme';
 import type { Exercise } from '@/interfaces/exercise';
 import type { RoutineInputExercise } from '@/interfaces/routine';
+import { TYPOGRAPHY } from '@/theme';
 import { getExerciseDescription, getExerciseDisplayName, getMuscleDisplayName, getMuscleSubtext } from '@/utils/fitness';
 
 type SelectedExercise = {
@@ -32,6 +34,22 @@ type SelectedExercise = {
   reps: string;
   restSeconds: string;
   notes: string;
+};
+
+const ROUTINE_THEME = {
+  colors: {
+    background: '#020204',
+    backgroundSoft: '#050508',
+    backgroundSelected: 'rgba(109,40,217,0.14)',
+    surface: '#090910',
+    surfaceElevated: '#0f0b17',
+    border: 'rgba(139,92,246,0.14)',
+    primary: '#7c3aed',
+    text: '#ffffff',
+    textMuted: 'rgba(255,255,255,0.45)',
+    textSubtle: 'rgba(255,255,255,0.28)',
+    shadow: 'rgba(109,40,217,0.16)',
+  },
 };
 
 function buildRoutineExercises(selected: SelectedExercise[]): RoutineInputExercise[] {
@@ -45,6 +63,35 @@ function buildRoutineExercises(selected: SelectedExercise[]): RoutineInputExerci
   }));
 }
 
+function AppHeader({ title, subtitle }: { title: string; subtitle?: string; showBack?: boolean }) {
+  return (
+    <View style={styles.headerRow}>
+      <View style={styles.headerCopy}>
+        <Text style={styles.eyebrow}>GYM PONTE PIÑUO</Text>
+        <Text style={styles.pageTitle}>{title}</Text>
+        {subtitle ? <Text style={styles.greeting}>{subtitle}</Text> : null}
+      </View>
+      <Pressable
+        onPress={() => {
+          if (typeof router.canGoBack === 'function' && router.canGoBack()) {
+            router.back();
+            return;
+          }
+
+          router.replace(ROUTES.app.routines);
+        }}
+        style={({ hovered, pressed }) => [
+          styles.backBtn,
+          hovered && styles.backBtnHover,
+          pressed && styles.pressed,
+        ]}>
+        <MaterialCommunityIcons name="arrow-left" size={16} color="#c4b5fd" />
+        <Text style={styles.backBtnText}>Volver</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function ExerciseSelectionCard({
   exercise,
   selected,
@@ -54,7 +101,6 @@ function ExerciseSelectionCard({
   selected: boolean;
   onPress: () => void;
 }) {
-  const theme = useTheme();
   const title = getExerciseDisplayName(exercise);
   const description = getExerciseDescription(exercise);
   const muscleLabel =
@@ -66,9 +112,12 @@ function ExerciseSelectionCard({
       style={({ pressed }) => [
         styles.exerciseCard,
         {
-          backgroundColor: theme.colors.surface,
-          borderColor: selected ? theme.colors.primary : theme.colors.border,
-          shadowColor: selected ? theme.colors.primary : theme.colors.shadow,
+          borderColor: selected ? 'rgba(139,92,246,0.58)' : 'rgba(139,92,246,0.14)',
+          shadowColor: selected ? 'rgba(109,40,217,0.22)' : 'transparent',
+          shadowOpacity: selected ? 1 : 0,
+          shadowRadius: selected ? 24 : 0,
+          shadowOffset: { width: 0, height: 0 },
+          elevation: selected ? 5 : 0,
         },
         pressed && styles.pressed,
       ]}>
@@ -83,39 +132,39 @@ function ExerciseSelectionCard({
             transition={120}
           />
         ) : (
-          <View style={[styles.exercisePlaceholder, { backgroundColor: theme.colors.surfaceElevated }]}>
-            <MaterialCommunityIcons name="dumbbell" size={24} color={theme.colors.primary} />
+          <View style={styles.exercisePlaceholder}>
+            <MaterialCommunityIcons name="dumbbell" size={24} color="#a78bfa" />
           </View>
         )}
-        <View style={[styles.exerciseBadge, { backgroundColor: theme.colors.surfaceElevated }]}>
-          <TextBlock variant="caption" color="primary">
+        <View style={[styles.exerciseBadge, selected && styles.exerciseBadgeSelected]}>
+          <Text style={[styles.exerciseBadgeText, selected && styles.exerciseBadgeTextSelected]}>
             {selected ? 'Seleccionado' : 'Añadir'}
-          </TextBlock>
+          </Text>
         </View>
       </View>
 
       <View style={styles.exerciseCardBody}>
         <View style={styles.exerciseCardHeader}>
-          <TextBlock variant="title" style={styles.exerciseTitle} numberOfLines={2}>
+          <Text style={styles.exerciseTitle} numberOfLines={2}>
             {title}
-          </TextBlock>
+          </Text>
           <MaterialCommunityIcons
             name={selected ? 'check-circle' : 'circle-outline'}
             size={20}
-            color={selected ? theme.colors.primary : theme.colors.textSubtle}
+            color={selected ? '#a78bfa' : 'rgba(255,255,255,0.22)'}
           />
         </View>
 
         {description ? (
-          <TextBlock variant="caption" color="muted" numberOfLines={2}>
+          <Text style={styles.exerciseDesc} numberOfLines={2}>
             {description}
-          </TextBlock>
+          </Text>
         ) : null}
 
         {muscleLabel ? (
-          <TextBlock variant="caption" color="subtle" numberOfLines={1}>
+          <Text style={styles.exerciseMuscle} numberOfLines={1}>
             {muscleLabel}
-          </TextBlock>
+          </Text>
         ) : null}
       </View>
     </Pressable>
@@ -123,7 +172,8 @@ function ExerciseSelectionCard({
 }
 
 export default function CreateRoutineScreen() {
-  const theme = useTheme();
+  const theme = ROUTINE_THEME;
+  const { width } = useWindowDimensions();
   const { user } = useAuth();
   const { items: muscles, loading: musclesLoading, error: musclesError, retry: retryMuscles } =
     useMuscles({ perPage: 100 });
@@ -138,8 +188,11 @@ export default function CreateRoutineScreen() {
 
   const scrollViewRef = useRef<ScrollView | null>(null);
   const [exercisesSectionOffset, setExercisesSectionOffset] = useState<number>(0);
+  const [routineDetailsSectionOffset, setRoutineDetailsSectionOffset] = useState<number>(0);
   const [configSectionOffset, setConfigSectionOffset] = useState<number>(0);
+  const routineDetailsOffsetRef = useRef(0);
   const selectedCountRef = useRef<number>(0);
+  const pendingConfigScrollRef = useRef(false);
 
   const {
     items: exercises,
@@ -159,11 +212,15 @@ export default function CreateRoutineScreen() {
 
   const pageOptions = useMemo(() => {
     const candidates = new Set<number>([
+      exercisesPage - 4,
+      exercisesPage - 3,
       exercisesPage - 2,
       exercisesPage - 1,
       exercisesPage,
       exercisesPage + 1,
       exercisesPage + 2,
+      exercisesPage + 3,
+      exercisesPage + 4,
     ]);
 
     return [...candidates]
@@ -171,13 +228,32 @@ export default function CreateRoutineScreen() {
       .sort((a, b) => a - b);
   }, [exercisesLastPage, exercisesPage]);
 
-  const scrollToExercisesStart = useCallback(() => {
+  const exerciseGridColumns = useMemo(() => {
+    if (width < 600) return 1;
+    if (width < 1024) return 2;
+    return 3;
+  }, [width]);
+
+  const exerciseColumnWrapperStyle = useMemo(() => {
+    if (exerciseGridColumns === 1) return undefined;
+    return styles.exerciseColumnWrapper;
+  }, [exerciseGridColumns]);
+
+  const exerciseCardWrapperStyle = useMemo(() => {
+    if (exerciseGridColumns === 1) return styles.exerciseCardWrapper;
+
+    return [
+      styles.exerciseCardWrapper,
+      { maxWidth: `${100 / exerciseGridColumns}%` as `${number}%` },
+    ];
+  }, [exerciseGridColumns]);
+
+  const scrollToOffset = useCallback((offset: number) => {
     if (!scrollViewRef.current) {
       return;
     }
 
     const scrollView = scrollViewRef.current as any;
-    const offset = exercisesSectionOffset || 0;
 
     if (typeof scrollView.scrollTo === 'function') {
       try {
@@ -188,26 +264,19 @@ export default function CreateRoutineScreen() {
         return;
       }
     }
-  }, [exercisesSectionOffset]);
+  }, []);
+
+  const scrollToExercisesStart = useCallback(() => {
+    scrollToOffset(exercisesSectionOffset || 0);
+  }, [exercisesSectionOffset, scrollToOffset]);
 
   const scrollToConfigStart = useCallback(() => {
-    if (!scrollViewRef.current) {
-      return;
-    }
+    scrollToOffset(configSectionOffset || 0);
+  }, [configSectionOffset, scrollToOffset]);
 
-    const scrollView = scrollViewRef.current as any;
-    const offset = configSectionOffset || 0;
-
-    if (typeof scrollView.scrollTo === 'function') {
-      try {
-        scrollView.scrollTo({ y: offset, animated: true });
-        return;
-      } catch {
-        scrollView.scrollTo({ top: offset, left: 0, behavior: 'smooth' });
-        return;
-      }
-    }
-  }, [configSectionOffset]);
+  const scrollToRoutineDetailsStart = useCallback(() => {
+    scrollToOffset(routineDetailsOffsetRef.current || routineDetailsSectionOffset || 0);
+  }, [routineDetailsSectionOffset, scrollToOffset]);
 
   async function handlePageChange(nextPage: number) {
     await goToPage(nextPage);
@@ -231,13 +300,19 @@ export default function CreateRoutineScreen() {
   const [description, setDescription] = useState('');
   const [selected, setSelected] = useState<SelectedExercise[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [nameMissing, setNameMissing] = useState(false);
   const [isPredefined, setIsPredefined] = useState(false);
 
   useEffect(() => {
     const previousCount = selectedCountRef.current;
-    if (selected.length > previousCount && configSectionOffset > 0) {
+    if (selected.length > previousCount) {
+      pendingConfigScrollRef.current = true;
+    }
+
+    if (pendingConfigScrollRef.current && selected.length > 0 && configSectionOffset > 0) {
       const timeout = setTimeout(() => {
         scrollToConfigStart();
+        pendingConfigScrollRef.current = false;
       }, 100);
 
       selectedCountRef.current = selected.length;
@@ -280,6 +355,7 @@ export default function CreateRoutineScreen() {
       return;
     }
 
+    pendingConfigScrollRef.current = true;
     setSelected((current) => [
       ...current,
       {
@@ -307,7 +383,11 @@ export default function CreateRoutineScreen() {
 
     if (!trimmedName) {
       const message = 'El nombre de la rutina es obligatorio.';
+      setNameMissing(true);
       setValidationError(message);
+      setTimeout(() => {
+        scrollToRoutineDetailsStart();
+      }, 100);
       Alert.alert('Atención', message);
       return;
     }
@@ -349,15 +429,17 @@ export default function CreateRoutineScreen() {
 
   if (musclesLoading && muscles.length === 0) {
     return (
-      <ScreenContainer>
+      <SafeAreaView style={styles.safe}>
+        <TopBar />
         <AppHeader title="Crear rutina" subtitle="Cargando catálogo de ejercicios" showBack />
         <LoadingSpinner label="Preparando músculos" />
-      </ScreenContainer>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScreenContainer scrollable={false}>
+    <SafeAreaView style={styles.safe}>
+      <TopBar />
       <ScrollView
         ref={scrollViewRef}
         style={styles.scroll}
@@ -365,11 +447,11 @@ export default function CreateRoutineScreen() {
         showsVerticalScrollIndicator={false}>
         <AppHeader title="Crear rutina" subtitle="Construye una rutina personalizada paso a paso" showBack />
 
-        <View
-          style={[
-            styles.heroCard,
-            { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
-          ]}>
+        <View style={styles.heroCard}>
+          <View style={styles.heroGlow} />
+          <View style={styles.heroIcon}>
+            <MaterialCommunityIcons name="clipboard-text-outline" size={108} color="#a78bfa" />
+          </View>
           <TextBlock variant="eyebrow" color="primary">
             Routine builder
           </TextBlock>
@@ -413,6 +495,11 @@ export default function CreateRoutineScreen() {
         ) : null}
 
         <View
+          onLayout={(event) => {
+            const nextOffset = event.nativeEvent.layout.y;
+            routineDetailsOffsetRef.current = nextOffset;
+            setRoutineDetailsSectionOffset(nextOffset);
+          }}
           style={[
             styles.formCard,
             { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
@@ -423,7 +510,12 @@ export default function CreateRoutineScreen() {
             </TextBlock>
             <TextInput
               value={name}
-              onChangeText={setName}
+              onChangeText={(value) => {
+                setName(value);
+                if (value.trim()) {
+                  setNameMissing(false);
+                }
+              }}
               placeholder="Push Day"
               placeholderTextColor={theme.colors.textSubtle}
               autoCapitalize="words"
@@ -431,8 +523,12 @@ export default function CreateRoutineScreen() {
               style={[
                 styles.input,
                 { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border, color: theme.colors.text },
+                nameMissing && styles.inputMissing,
               ]}
             />
+            {nameMissing ? (
+              <Text style={styles.fieldErrorText}>El nombre de la rutina es obligatorio.</Text>
+            ) : null}
           </View>
 
           <View style={styles.fieldGroup}>
@@ -586,6 +682,7 @@ export default function CreateRoutineScreen() {
               title="Elige un músculo primero"
               description="Solo después mostraremos los ejercicios y sus GIFs."
               icon="arm-flex"
+              containerStyle={styles.inputToneEmptyState}
             />
           ) : (
             <>
@@ -619,7 +716,10 @@ export default function CreateRoutineScreen() {
               ) : null}
 
               <FlatList
+                key={`exercise-grid-${exerciseGridColumns}`}
                 data={filteredExercises}
+                numColumns={exerciseGridColumns}
+                columnWrapperStyle={exerciseColumnWrapperStyle}
                 keyExtractor={(item) => String(item.id)}
                 scrollEnabled={false}
                 contentContainerStyle={styles.exerciseList}
@@ -627,11 +727,13 @@ export default function CreateRoutineScreen() {
                   const selectedItem = selectedIds.has(String(item.id));
 
                   return (
-                    <ExerciseSelectionCard
-                      exercise={item}
-                      selected={selectedItem}
-                      onPress={() => toggleExercise(item)}
-                    />
+                    <View style={exerciseCardWrapperStyle}>
+                      <ExerciseSelectionCard
+                        exercise={item}
+                        selected={selectedItem}
+                        onPress={() => toggleExercise(item)}
+                      />
+                    </View>
                   );
                 }}
               />
@@ -724,7 +826,16 @@ export default function CreateRoutineScreen() {
         </View>
 
         <View
-          onLayout={(event) => setConfigSectionOffset(event.nativeEvent.layout.y)}
+          onLayout={(event) => {
+            const nextOffset = event.nativeEvent.layout.y;
+            setConfigSectionOffset(nextOffset);
+            if (pendingConfigScrollRef.current && selected.length > 0) {
+              setTimeout(() => {
+                scrollToOffset(nextOffset);
+                pendingConfigScrollRef.current = false;
+              }, 100);
+            }
+          }}
           style={[
             styles.sectionCard,
             { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
@@ -741,6 +852,7 @@ export default function CreateRoutineScreen() {
               title="Aún no has agregado ejercicios"
               description="Selecciona ejercicios arriba para ajustar sets, reps, descanso y notas."
               icon="playlist-plus"
+              containerStyle={styles.inputToneEmptyState}
             />
           ) : (
             selected.map((entry, index) => {
@@ -858,28 +970,123 @@ export default function CreateRoutineScreen() {
           </TextBlock>
         </Pressable>
       </ScrollView>
-    </ScreenContainer>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: '#020204',
+  },
+  loadingWrap: {
+    flex: 1,
+    paddingHorizontal: 48,
+    paddingTop: 40,
+    maxWidth: 1100,
+    width: '100%',
+    alignSelf: 'center',
+  },
   scroll: {
     flex: 1,
   },
   content: {
-    paddingBottom: DIMENSIONS.screenPadding * 1.5,
+    paddingHorizontal: 48,
+    paddingTop: 40,
+    paddingBottom: 100,
+    maxWidth: 1100,
+    width: '100%',
+    alignSelf: 'center',
     gap: 16,
   },
-  heroCard: {
-    borderRadius: DIMENSIONS.cardRadius,
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 32,
+    gap: 18,
+  },
+  headerCopy: {
+    flex: 1,
+  },
+  eyebrow: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fonts.mono,
+    letterSpacing: 2.2,
+    color: '#7c3aed',
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  pageTitle: {
+    fontSize: 38,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: -0.5,
+    marginBottom: 8,
+    lineHeight: 42,
+  },
+  greeting: {
+    fontSize: 13.5,
+    color: 'rgba(255,255,255,0.35)',
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    marginTop: 8,
+    backgroundColor: 'rgba(109,40,217,0.12)',
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 20,
+    borderColor: 'rgba(139,92,246,0.35)',
+  },
+  backBtnHover: {
+    backgroundColor: 'rgba(109,40,217,0.22)',
+    transform: [{ translateY: -1 }],
+  },
+  backBtnText: {
+    color: '#c4b5fd',
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  heroCard: {
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.28)',
+    borderLeftWidth: 3,
+    borderLeftColor: '#7c3aed',
+    backgroundColor: 'rgba(109,40,217,0.1)',
+    paddingVertical: 28,
+    paddingHorizontal: 32,
     gap: 10,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  heroGlow: {
+    position: 'absolute',
+    right: -60,
+    top: -60,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(109,40,217,0.14)',
+    pointerEvents: 'none',
+  },
+  heroIcon: {
+    position: 'absolute',
+    right: 28,
+    top: '50%',
+    marginTop: -54,
+    opacity: 0.05,
   },
   formCard: {
-    borderRadius: DIMENSIONS.cardRadius,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 18,
+    borderColor: 'rgba(139,92,246,0.14)',
+    backgroundColor: '#090910',
+    padding: 22,
     gap: 14,
   },
   fieldGroup: {
@@ -893,21 +1100,46 @@ const styles = StyleSheet.create({
   },
   input: {
     minHeight: 52,
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.28)',
+    backgroundColor: '#050508',
+    color: 'rgba(255,255,255,0.86)',
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 15,
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  inputMissing: {
+    borderColor: 'rgba(248,113,113,0.85)',
+    shadowColor: 'rgba(248,113,113,0.22)',
+    shadowOpacity: 1,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
+  },
+  fieldErrorText: {
+    color: '#f87171',
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  inputToneEmptyState: {
+    backgroundColor: '#050508',
+    borderColor: 'rgba(139,92,246,0.28)',
   },
   textArea: {
     minHeight: 96,
     textAlignVertical: 'top',
   },
   sectionCard: {
-    borderRadius: DIMENSIONS.cardRadius,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 18,
+    borderColor: 'rgba(139,92,246,0.14)',
+    backgroundColor: '#090910',
+    padding: 22,
     gap: 14,
+    overflow: 'hidden',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -940,9 +1172,18 @@ const styles = StyleSheet.create({
   exerciseList: {
     gap: 12,
   },
+  exerciseColumnWrapper: {
+    gap: 12,
+    justifyContent: 'flex-start',
+  },
+  exerciseCardWrapper: {
+    flex: 1,
+    marginBottom: 12,
+  },
   exerciseCard: {
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: '#090910',
     overflow: 'hidden',
   },
   exerciseImageWrap: {
@@ -958,6 +1199,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#050508',
   },
   exerciseBadge: {
     position: 'absolute',
@@ -966,6 +1208,22 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
+    backgroundColor: 'rgba(9,9,16,0.92)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.22)',
+  },
+  exerciseBadgeSelected: {
+    backgroundColor: 'rgba(109,40,217,0.24)',
+    borderColor: 'rgba(139,92,246,0.55)',
+  },
+  exerciseBadgeText: {
+    color: 'rgba(255,255,255,0.48)',
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  exerciseBadgeTextSelected: {
+    color: '#c4b5fd',
   },
   exerciseCardBody: {
     padding: 16,
@@ -979,6 +1237,22 @@ const styles = StyleSheet.create({
   },
   exerciseTitle: {
     flex: 1,
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: TYPOGRAPHY.fonts.display,
+    lineHeight: 20,
+  },
+  exerciseDesc: {
+    color: 'rgba(255,255,255,0.36)',
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  exerciseMuscle: {
+    color: 'rgba(167,139,250,0.72)',
+    fontSize: 11,
+    fontFamily: TYPOGRAPHY.fonts.body,
   },
   exerciseToggleHeader: {
     flexDirection: 'row',
@@ -991,8 +1265,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   selectedCard: {
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.14)',
+    backgroundColor: '#0f0b17',
     padding: 14,
     gap: 12,
   },
@@ -1017,14 +1293,22 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.72)',
   },
   modalContent: {
     maxHeight: '82%',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.3)',
+    backgroundColor: '#090910',
     padding: 18,
     gap: 14,
+    shadowColor: 'rgba(109,40,217,0.26)',
+    shadowOpacity: 0.5,
+    shadowRadius: 44,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1043,11 +1327,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 2,
+    backgroundColor: '#5b21b6',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.5)',
+    shadowColor: 'rgba(109,40,217,0.3)',
+    shadowOpacity: 0.5,
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 18,
+    elevation: 6,
   },
   muscleButtonLabel: {
     color: '#ffffff',
@@ -1058,17 +1345,30 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#5b21b6',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.5)',
+    shadowColor: 'rgba(109,40,217,0.34)',
+    shadowOpacity: 0.5,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 7,
   },
   submitLabel: {
-    color: '#061018',
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: TYPOGRAPHY.fonts.body,
   },
   pressed: {
     opacity: 0.9,
     transform: [{ scale: 0.99 }],
   },
   paginationCard: {
-    borderRadius: DIMENSIONS.cardRadius,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.14)',
+    backgroundColor: '#0f0b17',
     padding: 14,
     gap: 12,
   },
@@ -1089,6 +1389,7 @@ const styles = StyleSheet.create({
   paginationButton: {
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.22)',
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
@@ -1106,6 +1407,7 @@ const styles = StyleSheet.create({
   pageNumberButton: {
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.22)',
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
