@@ -26,6 +26,7 @@ import {
 
 type UserParams = {
   id?: string;
+  role?: string;
 };
 
 type Values = {
@@ -84,6 +85,7 @@ export default function AdminUserFormScreen() {
   const isEditing = Boolean(params.id);
   const [values, setValues] = useState<Values>({
     ...EMPTY_VALUES,
+    roleSlug: params.role === 'admin' ? 'admin' : 'user',
     membershipEndsAt: createDefaultEndDate(),
   });
   const [loading, setLoading] = useState(isEditing);

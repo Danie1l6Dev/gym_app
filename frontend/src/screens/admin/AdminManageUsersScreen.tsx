@@ -22,13 +22,28 @@ import { useAdminUsers } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
 import { deleteAdminUser } from '@/services/admin.service';
 
+type UsersView = 'users' | 'admins';
+
 export default function AdminManageUsersScreen() {
   const theme = useTheme();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [view, setView] = useState<UsersView>('users');
   const [deleting, setDeleting] = useState<string | number | null>(null);
+  const role = view === 'admins' ? 'admin' : 'user';
   const { items, loading, refreshing, error, refresh, retry, loadMore, hasMore } =
-    useAdminUsers(debouncedSearch, 10, undefined);
+    useAdminUsers(debouncedSearch, 10, role);
+
+  const createLabel = view === 'admins' ? 'Crear admin +' : 'Crear usuario +';
+  const emptyTitle = view === 'admins' ? 'Sin administradores' : 'Sin usuarios';
+  const emptyDescription =
+    view === 'admins'
+      ? 'No hay administradores registrados. Crea uno para comenzar.'
+      : 'No hay usuarios registrados. Crea uno para comenzar.';
+  const subtitle =
+    view === 'admins'
+      ? 'Gestionar cuentas administrativas'
+      : 'Gestionar usuarios del sistema';
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -86,7 +101,7 @@ export default function AdminManageUsersScreen() {
       <ScreenContainer>
         <AppHeader
           title="Usuarios"
-          subtitle="Gestionar usuarios del sistema"
+          subtitle={subtitle}
           showBack
           backHref={ROUTES.app.adminManage}
         />
@@ -100,7 +115,7 @@ export default function AdminManageUsersScreen() {
       <ScreenContainer>
         <AppHeader
           title="Usuarios"
-          subtitle="Gestionar usuarios del sistema"
+          subtitle={subtitle}
           showBack
           backHref={ROUTES.app.adminManage}
         />
@@ -129,12 +144,17 @@ export default function AdminManageUsersScreen() {
           <View style={styles.header}>
             <AppHeader
               title="Usuarios"
-              subtitle="Gestionar usuarios del sistema"
+              subtitle={subtitle}
               showBack
               backHref={ROUTES.app.adminManage}
               rightElement={
                 <Pressable
-                  onPress={() => router.push(ROUTES.app.adminManageUserCreate as never)}
+                  onPress={() =>
+                    router.push({
+                      pathname: ROUTES.app.adminManageUserCreate,
+                      params: view === 'admins' ? { role: 'admin' } : undefined,
+                    } as never)
+                  }
                   style={({ pressed }) => [
                     styles.createButton,
                     { backgroundColor: theme.colors.primary },
@@ -142,11 +162,38 @@ export default function AdminManageUsersScreen() {
                   ]}
                 >
                   <TextBlock variant="button" style={styles.buttonLabel}>
-                    Crear +
+                    {createLabel}
                   </TextBlock>
                 </Pressable>
               }
             />
+
+            <View style={styles.segmentedWrap}>
+              <View style={[styles.segmented, { backgroundColor: theme.colors.surface }]}>
+                {[
+                  { key: 'users' as const, label: 'Usuarios' },
+                  { key: 'admins' as const, label: 'Administradores' },
+                ].map((option) => {
+                  const selected = view === option.key;
+
+                  return (
+                    <Pressable
+                      key={option.key}
+                      onPress={() => setView(option.key)}
+                      style={({ pressed }) => [
+                        styles.segmentButton,
+                        selected && { backgroundColor: theme.colors.surfaceElevated },
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <TextBlock variant="button" color={selected ? 'default' : 'muted'}>
+                        {option.label}
+                      </TextBlock>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
 
             <SearchBar
               label="Buscar"
@@ -205,11 +252,16 @@ export default function AdminManageUsersScreen() {
         )}
         ListEmptyComponent={
           <EmptyState
-            title="Sin usuarios"
-            description="No hay usuarios registrados. Crea uno para comenzar."
-            icon="account-off-outline"
-            actionLabel="Crear usuario"
-            onAction={() => router.push(ROUTES.app.adminUserCreate as never)}
+            title={emptyTitle}
+            description={emptyDescription}
+            icon={view === 'admins' ? 'shield-account-outline' : 'account-off-outline'}
+            actionLabel={view === 'admins' ? 'Crear administrador' : 'Crear usuario'}
+            onAction={() =>
+              router.push({
+                pathname: ROUTES.app.adminManageUserCreate,
+                params: view === 'admins' ? { role: 'admin' } : undefined,
+              } as never)
+            }
           />
         }
       />
@@ -234,6 +286,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: DIMENSIONS.chipRadius,
+  },
+  segmentedWrap: {
+    gap: 10,
+  },
+  segmented: {
+    borderRadius: DIMENSIONS.cardRadius,
+    padding: 8,
+    gap: 8,
+  },
+  segmentButton: {
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pressed: {
     opacity: 0.7,
