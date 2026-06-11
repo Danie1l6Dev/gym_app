@@ -27,7 +27,7 @@ export default function AdminManageExercisesScreen() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [deleting, setDeleting] = useState<string | number | null>(null);
   const { items, loading, refreshing, error, refresh, retry, loadMore, hasMore } =
-    usePaginatedExercises(debouncedSearch, 10);
+    usePaginatedExercises({ search: debouncedSearch, perPage: 10 });
 
   useEffect(() => {
     const timeout = setTimeout(() => {

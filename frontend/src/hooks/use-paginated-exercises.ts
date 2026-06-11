@@ -53,6 +53,7 @@ export function usePaginatedExercises(filters: UsePaginatedExercisesOptions = {}
         const response = await fetchExercises({
           muscleId: filters.muscleId,
           search: filters.search,
+          hasGif: filters.hasGif,
           page: nextPage,
           perPage,
         });
@@ -76,7 +77,7 @@ export function usePaginatedExercises(filters: UsePaginatedExercisesOptions = {}
         setRefreshing(false);
       }
     },
-    [enabled, filters.muscleId, filters.search, keepPreviousPages, perPage]
+    [enabled, filters.hasGif, filters.muscleId, filters.search, keepPreviousPages, perPage]
   );
 
   const refresh = useCallback(async () => {

@@ -4,6 +4,7 @@ namespace App\Services\Exercises;
 
 use App\Jobs\TranslateExerciseJob;
 use App\Jobs\TranslateMuscleJob;
+use App\Jobs\CheckExerciseGifJob;
 use App\Models\Exercise;
 use App\Models\Muscle;
 use Illuminate\Support\Arr;
@@ -92,15 +93,19 @@ class ExerciseDbSyncService
 
         $rowsToUpsert = [];
         $translationCandidates = [];
+        $gifCheckCandidates = [];
         $now = now()->toDateTimeString();
 
         foreach ($normalizedExercises as $externalId => $attributes) {
             $exercise = $existingExercises->get($externalId);
+            $gifShouldBeChecked = $this->shouldCheckGifAvailability($exercise, $attributes);
             $attributes = $this->mergeLocalizedAttributes($exercise, $attributes);
+            $attributes = $this->mergeGifAvailabilityAttributes($exercise, $attributes);
 
             if ($exercise === null) {
                 $summary['created']++;
                 $translationCandidates[$externalId] = false;
+                $gifCheckCandidates[$externalId] = true;
             } elseif ($this->isSameExercise($exercise, $attributes)) {
                 $summary['omitted']++;
 
@@ -108,10 +113,15 @@ class ExerciseDbSyncService
                     $translationCandidates[$externalId] = false;
                 }
 
+                if ($gifShouldBeChecked) {
+                    $gifCheckCandidates[$externalId] = true;
+                }
+
                 continue;
             } else {
                 $summary['updated']++;
                 $translationCandidates[$externalId] = $this->shouldRefreshInstructionsTranslation($exercise, $attributes);
+                $gifCheckCandidates[$externalId] = $gifShouldBeChecked;
             }
 
             $rowsToUpsert[] = $this->prepareExerciseRowForUpsert(
@@ -126,6 +136,7 @@ class ExerciseDbSyncService
         }
 
         $this->deleteUnusedMuscles();
+        $this->dispatchGifChecks($gifCheckCandidates);
         $this->dispatchMuscleTranslations();
         $this->dispatchInstructionTranslations($translationCandidates);
 
@@ -257,6 +268,8 @@ class ExerciseDbSyncService
                 'secondary_muscles' => $secondaryMuscles ?: null,
                 'equipment' => $equipment ?: null,
                 'gif_url' => $gifUrl,
+                'gif_available' => null,
+                'gif_checked_at' => null,
                 'instructions_original' => $instructionsOriginal ?: null,
                 'instructions_es' => $instructionsEs ?: null,
                 'raw_payload' => $rawPayload,
@@ -318,6 +331,34 @@ class ExerciseDbSyncService
                 });
         } catch (Throwable $throwable) {
             Log::error('Muscle translation dispatch failed.', [
+                'exception' => $throwable,
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, bool>  $externalIds
+     */
+    private function dispatchGifChecks(array $externalIds): void
+    {
+        $ids = array_keys(array_filter($externalIds));
+
+        if ($ids === []) {
+            return;
+        }
+
+        try {
+            Exercise::query()
+                ->whereIn('external_id', $ids)
+                ->whereNotNull('gif_url')
+                ->where('gif_url', '<>', '')
+                ->get()
+                ->each(function (Exercise $exercise): void {
+                    CheckExerciseGifJob::dispatch($exercise->id);
+                });
+        } catch (Throwable $throwable) {
+            Log::error('Exercise GIF check dispatch failed.', [
+                'external_ids' => $ids,
                 'exception' => $throwable,
             ]);
         }
@@ -449,6 +490,8 @@ class ExerciseDbSyncService
             'secondary_muscles',
             'equipment',
             'gif_url',
+            'gif_available',
+            'gif_checked_at',
             'instructions_original',
             'instructions_es',
             'name_en',
@@ -484,7 +527,7 @@ class ExerciseDbSyncService
             $row[$key] = $this->databaseValue($row[$key]);
         }
 
-        foreach (['created_at', 'updated_at', 'synced_at'] as $key) {
+        foreach (['created_at', 'updated_at', 'synced_at', 'gif_checked_at'] as $key) {
             if (array_key_exists($key, $row)) {
                 $row[$key] = $this->databaseValue($row[$key]);
             }
@@ -521,6 +564,8 @@ class ExerciseDbSyncService
             'secondary_muscles',
             'equipment',
             'gif_url',
+            'gif_available',
+            'gif_checked_at',
             'instructions_original',
             'instructions_es',
             'raw_payload',
@@ -633,6 +678,47 @@ class ExerciseDbSyncService
         }
 
         return $attributes;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    private function mergeGifAvailabilityAttributes(?Exercise $exercise, array $attributes): array
+    {
+        if ($exercise === null) {
+            return $attributes;
+        }
+
+        $currentGif = trim((string) $exercise->gif_url);
+        $incomingGif = trim((string) ($attributes['gif_url'] ?? ''));
+
+        if ($currentGif !== '' && $currentGif === $incomingGif) {
+            $attributes['gif_available'] = $exercise->gif_available;
+            $attributes['gif_checked_at'] = $exercise->gif_checked_at;
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function shouldCheckGifAvailability(?Exercise $exercise, array $attributes): bool
+    {
+        $incomingGif = trim((string) ($attributes['gif_url'] ?? ''));
+
+        if ($incomingGif === '') {
+            return false;
+        }
+
+        if ($exercise === null) {
+            return true;
+        }
+
+        return trim((string) $exercise->gif_url) !== $incomingGif
+            || $exercise->gif_available === null
+            || $exercise->gif_checked_at === null;
     }
 
     /**

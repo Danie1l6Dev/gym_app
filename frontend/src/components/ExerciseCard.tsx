@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -20,11 +20,14 @@ type ExerciseCardProps = {
 
 function ExerciseCardBase({ exercise, onPress }: ExerciseCardProps) {
   const theme = useTheme();
+  const [failedGifUrl, setFailedGifUrl] = useState<string | null>(null);
   const title = getExerciseDisplayName(exercise);
   const description = getExerciseDescription(exercise);
   const difficulty = getExerciseDifficulty(exercise);
   const muscleLabel =
     exercise.muscle?.display_name ?? exercise.muscle?.name_es ?? exercise.muscle?.name_en ?? '';
+
+  const shouldShowGif = Boolean(exercise.gif_url && exercise.gif_url !== failedGifUrl);
 
   return (
     <Pressable
@@ -36,7 +39,7 @@ function ExerciseCardBase({ exercise, onPress }: ExerciseCardProps) {
         pressed && styles.pressed,
       ]}>
       <View style={styles.thumbnailWrap}>
-        {exercise.gif_url ? (
+        {shouldShowGif ? (
           <Image
             recyclingKey={String(exercise.id)}
             source={{ uri: exercise.gif_url }}
@@ -45,6 +48,7 @@ function ExerciseCardBase({ exercise, onPress }: ExerciseCardProps) {
             contentPosition="center"
             transition={140}
             cachePolicy="memory-disk"
+            onError={() => setFailedGifUrl(exercise.gif_url ?? null)}
           />
         ) : (
           <View style={[styles.placeholder, { backgroundColor: theme.colors.surfaceElevated }]}>

@@ -101,10 +101,12 @@ function ExerciseSelectionCard({
   selected: boolean;
   onPress: () => void;
 }) {
+  const [failedGifUrl, setFailedGifUrl] = useState<string | null>(null);
   const title = getExerciseDisplayName(exercise);
   const description = getExerciseDescription(exercise);
   const muscleLabel =
     exercise.muscle?.display_name ?? exercise.muscle?.name_es ?? exercise.muscle?.name_en ?? '';
+  const shouldShowGif = Boolean(exercise.gif_url && exercise.gif_url !== failedGifUrl);
 
   return (
     <Pressable
@@ -122,7 +124,7 @@ function ExerciseSelectionCard({
         pressed && styles.pressed,
       ]}>
       <View style={styles.exerciseImageWrap}>
-        {exercise.gif_url ? (
+        {shouldShowGif ? (
           <Image
             source={{ uri: exercise.gif_url }}
             style={styles.exerciseImage}
@@ -130,6 +132,7 @@ function ExerciseSelectionCard({
             contentPosition="center"
             cachePolicy="memory-disk"
             transition={120}
+            onError={() => setFailedGifUrl(exercise.gif_url ?? null)}
           />
         ) : (
           <View style={styles.exercisePlaceholder}>
@@ -181,6 +184,7 @@ export default function CreateRoutineScreen() {
   const [muscleModalVisible, setMuscleModalVisible] = useState(false);
   const [muscleSearch, setMuscleSearch] = useState('');
   const [exerciseSearch, setExerciseSearch] = useState('');
+  const [onlyExercisesWithGif, setOnlyExercisesWithGif] = useState(true);
   const selectedMuscle = useMemo(
     () => muscles.find((muscle) => String(muscle.id) === String(selectedMuscleId ?? '')) ?? null,
     [muscles, selectedMuscleId]
@@ -206,6 +210,7 @@ export default function CreateRoutineScreen() {
   } = usePaginatedExercises({
     muscleId: selectedMuscleId ?? undefined,
     perPage: 10,
+    hasGif: onlyExercisesWithGif,
     keepPreviousPages: false,
     enabled: Boolean(selectedMuscleId),
   });
@@ -692,6 +697,23 @@ export default function CreateRoutineScreen() {
                 value={exerciseSearch}
                 onChangeText={setExerciseSearch}
               />
+
+              <View style={styles.gifFilterRow}>
+                <View style={styles.gifFilterCopy}>
+                  <TextBlock variant="caption" color="muted">
+                    Solo ejercicios con GIF
+                  </TextBlock>
+                  <TextBlock variant="caption" color="subtle">
+                    Oculta ejercicios sin animacion para que la grilla no deje espacios vacios.
+                  </TextBlock>
+                </View>
+                <Switch
+                  value={onlyExercisesWithGif}
+                  onValueChange={setOnlyExercisesWithGif}
+                  trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                  thumbColor="#fff"
+                />
+              </View>
 
               {exercisesError ? (
                 <EmptyState
@@ -1385,6 +1407,21 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
     marginTop: 10,
+  },
+  gifFilterRow: {
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.14)',
+    backgroundColor: '#0f0b17',
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  gifFilterCopy: {
+    flex: 1,
+    gap: 4,
   },
   paginationButton: {
     borderRadius: 16,

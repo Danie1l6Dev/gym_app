@@ -23,6 +23,8 @@ class ExerciseResource extends JsonResource
             'secondary_muscles' => $this->secondary_muscles,
             'equipment' => $this->equipment,
             'gif_url' => $this->gif_url,
+            'gif_available' => $this->gif_available,
+            'gif_checked_at' => $this->gif_checked_at,
             'description_en' => $this->description_en,
             'description_es' => $this->description_es ?: $this->description_en,
             'instructions_original' => $this->instructions_original,

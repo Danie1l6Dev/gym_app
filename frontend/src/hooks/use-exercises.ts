@@ -27,6 +27,7 @@ export function useExercises(filters: ExerciseFilters = {}) {
       const response = await fetchExercises({
         muscleId: filters.muscleId,
         search: filters.search,
+        hasGif: filters.hasGif,
         page: filters.page,
         perPage: filters.perPage ?? 10,
       });
@@ -38,7 +39,7 @@ export function useExercises(filters: ExerciseFilters = {}) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filters.enabled, filters.muscleId, filters.page, filters.perPage, filters.search]);
+  }, [filters.enabled, filters.hasGif, filters.muscleId, filters.page, filters.perPage, filters.search]);
 
   const refresh = useCallback(async () => {
     if (loading) {

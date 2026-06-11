@@ -15,6 +15,8 @@ export interface Exercise {
   has_instructions_es?: boolean;
   display_description?: string | null;
   gif_url?: string | null;
+  gif_available?: boolean | null;
+  gif_checked_at?: string | null;
   difficulty?: string | number | null;
   difficulty_label?: string | null;
   muscle?: Muscle | null;
@@ -42,5 +44,6 @@ export interface ExerciseFilters {
   search?: string;
   page?: number;
   perPage?: number;
+  hasGif?: boolean;
   enabled?: boolean;
 }

@@ -12,6 +12,12 @@ class ExerciseIndexRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->mergeBooleanQueryParam('has_gif');
+        $this->mergeBooleanQueryParam('with_gif');
+    }
+
     public function rules(): array
     {
         return [
@@ -23,7 +29,20 @@ class ExerciseIndexRequest extends FormRequest
             'equipment' => ['sometimes', 'nullable', 'string', 'max:255'],
             'source' => ['sometimes', 'nullable', 'string', 'max:100'],
             'search' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'has_gif' => ['sometimes', 'boolean'],
+            'with_gif' => ['sometimes', 'boolean'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ];
+    }
+
+    private function mergeBooleanQueryParam(string $key): void
+    {
+        if (! $this->has($key)) {
+            return;
+        }
+
+        $this->merge([
+            $key => filter_var($this->input($key), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+        ]);
     }
 }

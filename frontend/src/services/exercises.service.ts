@@ -22,6 +22,7 @@ export async function fetchExercises(filters: ExerciseFilters = {}): Promise<Exe
       search: filters.search,
       page: filters.page,
       per_page: filters.perPage,
+      has_gif: filters.hasGif,
     },
   });
 

@@ -26,6 +26,8 @@ class Exercise extends Model
         'secondary_muscles',
         'equipment',
         'gif_url',
+        'gif_available',
+        'gif_checked_at',
         'instructions_original',
         'instructions_es',
         'raw_payload',
@@ -49,6 +51,8 @@ class Exercise extends Model
             'instructions_original' => 'array',
             'instructions_es' => 'array',
             'raw_payload' => 'array',
+            'gif_available' => 'boolean',
+            'gif_checked_at' => 'datetime',
             'synced_at' => 'datetime',
         ];
     }
@@ -73,6 +77,7 @@ class Exercise extends Model
     public function scopePublicFilters(Builder $query, array $filters): Builder
     {
         $name = $filters['name'] ?? $filters['nombre'] ?? null;
+        $requiresGif = filter_var($filters['has_gif'] ?? $filters['with_gif'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         return $query
             ->when(isset($filters['muscle_id']), fn (Builder $query) => $query->where('muscle_id', $filters['muscle_id']))
@@ -84,7 +89,8 @@ class Exercise extends Model
             ->when($filters['body_part'] ?? null, fn (Builder $query, string $bodyPart) => $query->where('body_part', $bodyPart))
             ->when($filters['target_muscle'] ?? null, fn (Builder $query, string $targetMuscle) => $query->where('target_muscle', $targetMuscle))
             ->when($filters['equipment'] ?? null, fn (Builder $query, string $equipment) => $query->whereJsonContains('equipment', $equipment))
-            ->when($filters['source'] ?? null, fn (Builder $query, string $source) => $query->where('source', $source));
+            ->when($filters['source'] ?? null, fn (Builder $query, string $source) => $query->where('source', $source))
+            ->when($requiresGif, fn (Builder $query) => $query->where('gif_available', true));
     }
 
     public function scopeSearchCatalog(Builder $query, ?string $term): Builder

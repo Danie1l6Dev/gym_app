@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Jobs\TranslateExerciseJob;
 use App\Jobs\TranslateMuscleJob;
+use App\Jobs\CheckExerciseGifJob;
 use App\Models\Exercise;
 use App\Models\Membership;
 use App\Models\Muscle;
@@ -15,6 +16,7 @@ use App\Services\Exercises\ExternalExerciseApiClient;
 use App\Services\Translation\LibreTranslateClient;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use RuntimeException;
 use Tests\TestCase;
@@ -69,6 +71,97 @@ class GymAppApiTest extends TestCase
         $this->getJson('/api/v1/exercises?search=press')
             ->assertOk()
             ->assertJsonFragment(['name_es' => 'Press de banca']);
+    }
+
+    public function test_exercise_catalog_can_filter_items_with_gif(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $withGif = $this->createExercise();
+        $withGif->forceFill([
+            'gif_url' => 'https://example.com/bench.gif',
+            'gif_available' => true,
+            'gif_checked_at' => now(),
+        ])->save();
+
+        Exercise::query()->create(array_merge(
+            $withGif->replicate(['external_id'])->toArray(),
+            [
+                'external_id' => 'bench-press-no-gif',
+                'name_original' => 'Bench Press No GIF',
+                'name_en' => 'Bench Press No GIF',
+                'name_es' => 'Press sin GIF',
+                'gif_url' => null,
+                'gif_available' => false,
+                'gif_checked_at' => now(),
+            ]
+        ));
+
+        $this->getJson('/api/v1/exercises?has_gif=1&per_page=20')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.external_id', 'bench-press');
+
+        $this->getJson('/api/v1/exercises?has_gif=0&per_page=20')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $this->getJson('/api/v1/exercises?has_gif=true&per_page=20')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        $this->getJson('/api/v1/exercises?has_gif=false&per_page=20')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $this->getJson("/api/v1/muscles/{$withGif->muscle_id}/exercises?has_gif=1&per_page=20")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.external_id', 'bench-press');
+    }
+
+    public function test_check_exercise_gif_job_uses_get_fallback_when_head_fails(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        Http::fake([
+            'https://example.com/ok.gif' => Http::sequence()
+                ->push('', 404)
+                ->push('gif-bytes', 200),
+        ]);
+
+        $available = $this->createExercise();
+        $available->forceFill([
+            'external_id' => 'gif-ok',
+            'gif_url' => 'https://example.com/ok.gif',
+            'gif_available' => null,
+            'gif_checked_at' => null,
+        ])->save();
+
+        (new CheckExerciseGifJob($available->id))->handle();
+
+        $this->assertTrue($available->refresh()->gif_available);
+    }
+
+    public function test_check_exercise_gif_job_keeps_previous_state_on_temporary_failures(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        Http::fake(fn () => throw new RuntimeException('Temporary network failure.'));
+
+        $exercise = $this->createExercise();
+        $exercise->forceFill([
+            'gif_url' => 'https://example.com/temporary.gif',
+            'gif_available' => true,
+            'gif_checked_at' => null,
+        ])->save();
+
+        (new CheckExerciseGifJob($exercise->id))->handle();
+
+        $exercise->refresh();
+
+        $this->assertTrue($exercise->gif_available);
+        $this->assertNotNull($exercise->gif_checked_at);
     }
 
     public function test_authenticated_user_can_create_routine_with_existing_exercise(): void

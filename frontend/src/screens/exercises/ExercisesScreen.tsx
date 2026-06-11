@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useRef } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Switch, View, useWindowDimensions } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
 import { EmptyState } from '@/components/EmptyState';
@@ -23,6 +23,7 @@ export default function ExercisesScreen() {
   const { width } = useWindowDimensions();
   const params = useLocalSearchParams<ExercisesParams>();
   const listRef = useRef<FlatList<Exercise> | null>(null);
+  const [onlyWithGif, setOnlyWithGif] = useState(true);
   const {
     items,
     loading,
@@ -38,6 +39,7 @@ export default function ExercisesScreen() {
   } = usePaginatedExercises({
     muscleId: params.muscleId,
     perPage: 10,
+    hasGif: onlyWithGif,
     keepPreviousPages: false,
   });
 
@@ -103,6 +105,28 @@ export default function ExercisesScreen() {
         <TextBlock variant="caption" color="subtle">
           {meta?.total ? `${meta.total} ejercicios disponibles en el catálogo.` : 'Cargando total del catálogo...'}
         </TextBlock>
+      </View>
+
+      <View
+        style={[
+          styles.filterCard,
+          { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+        ]}>
+        <View style={styles.filterCopy}>
+          <TextBlock variant="button">Solo ejercicios con GIF</TextBlock>
+          <TextBlock variant="caption" color="subtle">
+            Oculta ejercicios sin animacion para evitar espacios vacios en la grilla.
+          </TextBlock>
+        </View>
+        <Switch
+          value={onlyWithGif}
+          onValueChange={(value) => {
+            setOnlyWithGif(value);
+            scrollToTop();
+          }}
+          trackColor={{ false: theme.colors.surfaceElevated, true: theme.colors.backgroundSelected }}
+          thumbColor={onlyWithGif ? theme.colors.primary : theme.colors.textSubtle}
+        />
       </View>
 
       {lastPage > 1 ? (
@@ -310,6 +334,19 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: 16,
     gap: 12,
+  },
+  filterCard: {
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 16,
+    gap: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  filterCopy: {
+    flex: 1,
+    gap: 4,
   },
   paginationHeader: {
     flexDirection: 'row',
