@@ -26,9 +26,25 @@ import type { Routine } from '@/interfaces/routine';
 
 type RoutineTab = 'recommended' | 'mine';
 
+type DayFilter = {
+  slug: string | null;
+  label: string;
+};
+
 const TABS: { key: RoutineTab; label: string; sub: string }[] = [
-  { key: 'recommended', label: 'Recomendadas', sub: 'Rutinas predefinidas del catÃ¡logo' },
   { key: 'mine', label: 'Mis rutinas', sub: 'Rutinas creadas o asignadas a tu usuario' },
+  { key: 'recommended', label: 'Recomendadas', sub: 'Rutinas predefinidas del catÃ¡logo' },
+];
+
+const DAY_FILTERS: DayFilter[] = [
+  { slug: null, label: 'Todos' },
+  { slug: 'lunes', label: 'Lunes' },
+  { slug: 'martes', label: 'Martes' },
+  { slug: 'miercoles', label: 'Miercoles' },
+  { slug: 'jueves', label: 'Jueves' },
+  { slug: 'viernes', label: 'Viernes' },
+  { slug: 'sabado', label: 'Sabado' },
+  { slug: 'domingo', label: 'Domingo' },
 ];
 
 const NIVEL_STYLE: Record<string, { bg: string; color: string }> = {
@@ -344,7 +360,8 @@ export default function RoutinesScreen() {
   const { items, loading, refreshing, error, refresh, retry } = useRoutines();
   const { submit: deleteRoutineSubmit, loading: deleting, error: deleteError } = useDeleteRoutine();
   const isCompact = width < 768;
-  const [activeTab, setActiveTab] = useState<RoutineTab>('recommended');
+  const [activeTab, setActiveTab] = useState<RoutineTab>('mine');
+  const [selectedDayFilter, setSelectedDayFilter] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [deletingRoutineId, setDeletingRoutineId] = useState<string | null>(null);
   const [routinePendingDelete, setRoutinePendingDelete] = useState<Routine | null>(null);
@@ -361,11 +378,24 @@ export default function RoutinesScreen() {
     [items, user?.id],
   );
 
-  const data = activeTab === 'recommended' ? recommended : mine;
+  const baseData = activeTab === 'recommended' ? recommended : mine;
+  const data = useMemo(
+    () => {
+      if (!selectedDayFilter) {
+        return baseData;
+      }
+
+      return baseData.filter((routine) =>
+        (routine.days ?? []).some((day) => day.slug === selectedDayFilter)
+      );
+    },
+    [baseData, selectedDayFilter],
+  );
   const title = activeTab === 'recommended' ? 'Rutinas recomendadas' : 'Mis rutinas';
   const subtitle = activeTab === 'recommended'
     ? 'Plantillas listas para usar con los ejercicios del sistema.'
     : 'Rutinas personalizadas vinculadas a tu perfil.';
+  const activeDayLabel = DAY_FILTERS.find((day) => day.slug === selectedDayFilter)?.label ?? 'Todos';
 
   function handleDeleteRoutine(routine: Routine) {
     if (deleting) {
@@ -504,10 +534,59 @@ export default function RoutinesScreen() {
                 );
               })}
             </View>
+
+            <View style={styles.filterCard}>
+              <View style={styles.filterHeader}>
+                <View>
+                  <Text style={styles.filterEyebrow}>Filtro por dia</Text>
+                  <Text style={styles.filterTitle}>{activeDayLabel}</Text>
+                </View>
+                <View style={styles.filterCount}>
+                  <Text style={styles.filterCountText}>{data.length}</Text>
+                </View>
+              </View>
+              <View style={styles.dayFilterList}>
+                {DAY_FILTERS.map((day) => {
+                  const active = selectedDayFilter === day.slug;
+                  return (
+                    <Pressable
+                      key={day.slug ?? 'all'}
+                      onPress={() => setSelectedDayFilter(day.slug)}
+                      style={({ hovered }) => [
+                        styles.dayFilterChip,
+                        {
+                          backgroundColor: active
+                            ? 'rgba(109,40,217,0.18)'
+                            : hovered
+                              ? 'rgba(139,92,246,0.08)'
+                              : 'rgba(255,255,255,0.02)',
+                          borderColor: active ? 'rgba(167,139,250,0.55)' : 'rgba(139,92,246,0.14)',
+                        },
+                      ]}>
+                      <Text style={[styles.dayFilterText, active && styles.dayFilterTextActive]}>
+                        {day.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
           </View>
         }
         ListEmptyComponent={
-          <EmptyRoutines onCrear={() => setModalVisible(true)} />
+          selectedDayFilter ? (
+            <View style={styles.emptyCard}>
+              <View style={styles.emptyIconWrap}>
+                <MaterialCommunityIcons name="calendar-search" size={22} color="#a78bfa" />
+              </View>
+              <Text style={styles.emptyTitle}>Sin rutinas para este dia</Text>
+              <Text style={styles.emptyDesc}>
+                Cambia el filtro o edita una rutina para asociarla a {activeDayLabel}.
+              </Text>
+            </View>
+          ) : (
+            <EmptyRoutines onCrear={() => setModalVisible(true)} />
+          )
         }
         renderItem={({ item }: { item: Routine }) => (
           <RutinaCard
@@ -713,6 +792,71 @@ const styles = StyleSheet.create({
   tabCountText: {
     fontSize: 10,
     fontFamily: TYPOGRAPHY.fonts.mono,
+  },
+  filterCard: {
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 20,
+    backgroundColor: '#090910',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.14)',
+    gap: 14,
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  filterEyebrow: {
+    fontSize: 9,
+    fontFamily: TYPOGRAPHY.fonts.mono,
+    letterSpacing: 1.8,
+    color: '#8b5cf6',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  filterTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  filterCount: {
+    minWidth: 34,
+    height: 28,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(139,92,246,0.12)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.3)',
+  },
+  filterCountText: {
+    color: '#a78bfa',
+    fontSize: 11,
+    fontFamily: TYPOGRAPHY.fonts.mono,
+  },
+  dayFilterList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  dayFilterChip: {
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  dayFilterText: {
+    color: 'rgba(255,255,255,0.42)',
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  dayFilterTextActive: {
+    color: '#c4b5fd',
   },
   rCard: {
     borderRadius: 16,
