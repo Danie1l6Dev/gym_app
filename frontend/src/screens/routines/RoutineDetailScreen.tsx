@@ -107,7 +107,6 @@ export default function RoutineDetailScreen() {
             <AppHeader
               title={item.name}
               subtitle={item.description ?? 'Rutina lista para entrenar.'}
-              showBack
               rightElement={(
                 <Pressable
                   onPress={() => router.replace(ROUTES.app.routines)}
