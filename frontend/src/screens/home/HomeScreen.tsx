@@ -1,4 +1,5 @@
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { ComponentProps } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -9,6 +10,9 @@ import { useExercises, useMuscles, useRoutines } from '@/hooks';
 import { useAuth } from '@/hooks/use-auth';
 import { ROUTES } from '@/constants';
 import { TYPOGRAPHY } from '@/theme';
+import type { Routine } from '@/interfaces/routine';
+
+type MaterialIconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 const ICONS = {
   Repeat2: 'repeat-variant',
@@ -21,16 +25,112 @@ const ICONS = {
   ChevronRight: 'chevron-right',
 } as const;
 
+const WEEKDAY_SLUGS = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'] as const;
+
+function getTodaySlug(): string {
+  return WEEKDAY_SLUGS[new Date().getDay()];
+}
+
+function getDayDisplayName(slug: string): string {
+  const names: Record<string, string> = {
+    lunes: 'Lunes',
+    martes: 'Martes',
+    miercoles: 'Miercoles',
+    jueves: 'Jueves',
+    viernes: 'Viernes',
+    sabado: 'Sabado',
+    domingo: 'Domingo',
+  };
+
+  return names[slug] ?? 'Hoy';
+}
+
+function TodayRoutineBanner({
+  todayLabel,
+  todaysRoutines,
+  personalRoutineCount,
+}: {
+  todayLabel: string;
+  todaysRoutines: Routine[];
+  personalRoutineCount: number;
+}) {
+  const hasTodaysRoutines = todaysRoutines.length > 0;
+  const title = hasTodaysRoutines
+    ? 'Tu rutina para el dia de hoy es...'
+    : personalRoutineCount > 0
+      ? 'Tienes rutinas creadas pero no las has asociado a ningun dia'
+      : 'No tienes rutinas creadas';
+  const description = hasTodaysRoutines
+    ? `${todayLabel}: ${todaysRoutines.map((routine) => routine.name).join(', ')}`
+    : personalRoutineCount > 0
+      ? 'Asociala y mejora tu plan de entrenamiento.'
+      : 'Crea una y asociala a un dia, o usa alguna rutina recomendada.';
+
+  function handlePress() {
+    if (todaysRoutines.length === 1) {
+      router.push({
+        pathname: ROUTES.app.routineDetail,
+        params: { id: String(todaysRoutines[0].id) },
+      });
+      return;
+    }
+
+    router.push(hasTodaysRoutines ? ROUTES.app.routines : ROUTES.app.routineCreate);
+  }
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      style={({ hovered }) => [
+        styles.todayBanner,
+        {
+          borderColor: hovered ? 'rgba(167,139,250,0.56)' : 'rgba(167,139,250,0.28)',
+          shadowColor: hovered ? 'rgba(109,40,217,0.18)' : 'rgba(109,40,217,0.08)',
+          shadowOpacity: hovered ? 0.4 : 0.22,
+          shadowRadius: hovered ? 32 : 18,
+          shadowOffset: { width: 0, height: 0 },
+          elevation: hovered ? 8 : 0,
+        },
+      ]}>
+      <View style={styles.todayBannerGlow} />
+      <View style={styles.todayBannerIcon}>
+        <MaterialCommunityIcons
+          name={hasTodaysRoutines ? 'calendar-check' : 'calendar-plus'}
+          size={20}
+          color="#c4b5fd"
+        />
+      </View>
+      <View style={styles.todayBannerCopy}>
+        <Text style={styles.todayBannerEyebrow}>Plan semanal recurrente</Text>
+        <Text style={styles.todayBannerTitle}>{title}</Text>
+        <Text style={styles.todayBannerDesc}>{description}</Text>
+        {hasTodaysRoutines && todaysRoutines.length > 1 ? (
+          <View style={styles.todayRoutineList}>
+            {todaysRoutines.map((routine) => (
+              <View key={String(routine.id)} style={styles.todayRoutinePill}>
+                <Text style={styles.todayRoutinePillText}>{routine.name}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </View>
+      <MaterialCommunityIcons name="chevron-right" size={18} color="rgba(196,181,253,0.72)" />
+    </Pressable>
+  );
+}
+
 function StatCard({
-  value, label, sub, icon, accent, glow,
+  value, label, sub, icon, accent, glow, compact,
 }: {
   value: number; label: string; sub: string;
-  icon: string; accent: string; glow: string;
+  icon: MaterialIconName; accent: string; glow: string;
+  compact?: boolean;
 }) {
   return (
     <Pressable
       style={({ hovered }) => [
         styles.statCard,
+        compact && styles.statCardCompact,
         {
           borderColor: hovered ? 'rgba(139,92,246,0.5)' : 'rgba(139,92,246,0.14)',
           shadowColor: hovered ? glow : 'transparent',
@@ -48,9 +148,9 @@ function StatCard({
           <View style={[styles.statIconWrap, { backgroundColor: glow, borderColor: `${accent}30` }]}>
             <MaterialCommunityIcons name={icon} size={16} color={accent} />
           </View>
-          <Text style={[styles.statValue, { color: '#fff' }]}>{value}</Text>
-          <Text style={[styles.statLabel, { color: accent }]}>{label}</Text>
-          <Text style={[styles.statSub, { color: 'rgba(255,255,255,0.28)' }]}>{sub}</Text>
+          <Text style={[styles.statValue, compact && styles.statValueCompact, { color: '#fff' }]}>{value}</Text>
+          <Text style={[styles.statLabel, { color: accent }]} numberOfLines={1}>{label}</Text>
+          <Text style={[styles.statSub, { color: 'rgba(255,255,255,0.28)' }]} numberOfLines={2}>{sub}</Text>
         </>
       )}
     </Pressable>
@@ -60,7 +160,7 @@ function StatCard({
 function QuickCard({
   label, hint, icon, onPress,
 }: {
-  label: string; hint: string; icon: string; onPress: () => void;
+  label: string; hint: string; icon: MaterialIconName; onPress: () => void;
 }) {
   return (
     <Pressable
@@ -95,12 +195,22 @@ function QuickCard({
 }
 
 export default function HomeScreen() {
+  const { width } = useWindowDimensions();
   const { user } = useAuth();
   const routines = useRoutines();
   const muscles = useMuscles();
   const exercises = useExercises();
   const muscleCount = muscles.meta?.total ?? muscles.items.length;
   const exerciseCount = exercises.meta?.total ?? exercises.items.length;
+  const isCompactLayout = width < 640;
+  const todaySlug = getTodaySlug();
+  const todayLabel = getDayDisplayName(todaySlug);
+  const personalRoutines = routines.items.filter(
+    (routine) => !routine.is_predefined && String(routine.user_id ?? '') === String(user?.id ?? '')
+  );
+  const todaysRoutines = personalRoutines.filter((routine) =>
+    (routine.days ?? []).some((day) => day.slug === todaySlug)
+  );
 
   const stats = [
     {
@@ -183,13 +293,19 @@ export default function HomeScreen() {
         </View>
 
         {/* Stat cards */}
-        <View style={styles.statsRow}>
+        <View style={[styles.statsRow, isCompactLayout && styles.statsRowCompact]}>
           {stats.map((s) => (
-            <View key={s.label} style={styles.statCol}>
-              <StatCard {...s} />
+            <View key={s.label} style={[styles.statCol, isCompactLayout && styles.statColCompact]}>
+              <StatCard {...s} compact={isCompactLayout} />
             </View>
           ))}
         </View>
+
+        <TodayRoutineBanner
+          todayLabel={todayLabel}
+          todaysRoutines={todaysRoutines}
+          personalRoutineCount={personalRoutines.length}
+        />
 
         {/* Quick actions */}
         <Text style={styles.quickSectionLabel}>Acciones rápidas</Text>
@@ -244,6 +360,85 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 13.5,
     color: 'rgba(255,255,255,0.35)',
+  },
+  todayBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    borderRadius: 18,
+    paddingVertical: 24,
+    paddingHorizontal: 26,
+    marginBottom: 28,
+    backgroundColor: '#0b0911',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderLeftWidth: 3,
+    borderLeftColor: 'rgba(124,58,237,0.78)',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  todayBannerGlow: {
+    position: 'absolute',
+    right: -36,
+    top: -42,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: 'rgba(109,40,217,0.08)',
+    pointerEvents: 'none',
+  },
+  todayBannerIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(109,40,217,0.18)',
+    borderColor: 'rgba(139,92,246,0.35)',
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  todayBannerCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  todayBannerEyebrow: {
+    fontSize: 9,
+    fontFamily: TYPOGRAPHY.fonts.mono,
+    letterSpacing: 1.6,
+    color: '#8b5cf6',
+    textTransform: 'uppercase',
+  },
+  todayBannerTitle: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
+    lineHeight: 22,
+    fontFamily: TYPOGRAPHY.fonts.display,
+  },
+  todayBannerDesc: {
+    color: 'rgba(255,255,255,0.48)',
+    fontSize: 13,
+    lineHeight: 19,
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  todayRoutineList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+  },
+  todayRoutinePill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(109,40,217,0.16)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.28)',
+  },
+  todayRoutinePillText: {
+    color: '#c4b5fd',
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: TYPOGRAPHY.fonts.body,
   },
   heroCard: {
     borderRadius: 20,
@@ -302,8 +497,18 @@ const styles = StyleSheet.create({
     gap: 16,
     marginBottom: 28,
   },
+  statsRowCompact: {
+    flexWrap: 'wrap',
+    gap: 12,
+  },
   statCol: {
     flex: 1,
+  },
+  statColCompact: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 140,
+    minWidth: 140,
   },
   statCard: {
     borderRadius: 18,
@@ -313,6 +518,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#090910',
     position: 'relative',
     overflow: 'hidden',
+  },
+  statCardCompact: {
+    minHeight: 166,
+    paddingVertical: 20,
+    paddingHorizontal: 18,
   },
   statGlow: {
     position: 'absolute',
@@ -325,7 +535,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   statGlowInner: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 50,
     opacity: 0.7,
   },
@@ -345,6 +555,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     letterSpacing: -0.5,
     fontFamily: TYPOGRAPHY.fonts.mono,
+  },
+  statValueCompact: {
+    fontSize: 34,
+    lineHeight: 36,
+    marginBottom: 8,
   },
   statLabel: {
     fontSize: 14,
