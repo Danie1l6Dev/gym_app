@@ -29,7 +29,7 @@ class AuthController extends Controller
 
         /** @var User $user */
         $user = Auth::user();
-        $user->load('role', 'latestMembership', 'routines');
+        $user->load('role', 'latestMembership', 'routines.days');
         $token = $user->createToken('mobile')->plainTextToken;
 
         return response()->json([
@@ -46,7 +46,7 @@ class AuthController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        return UserResource::make($user->load('role', 'latestMembership', 'routines'))
+        return UserResource::make($user->load('role', 'latestMembership', 'routines.days'))
             ->additional(['message' => 'Perfil obtenido correctamente.'])
             ->response();
     }
@@ -69,7 +69,7 @@ class AuthController extends Controller
         $user->fill($data);
         $user->save();
 
-        return UserResource::make($user->load('role', 'latestMembership', 'routines'))
+        return UserResource::make($user->load('role', 'latestMembership', 'routines.days'))
             ->additional(['message' => 'Perfil actualizado correctamente.'])
             ->response();
     }

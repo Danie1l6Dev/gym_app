@@ -20,6 +20,14 @@ type RoutineParams = {
 
 const WIDE_EXERCISE_LAYOUT_BREAKPOINT = 760;
 
+function getRoutineDaysLabel(days?: { name?: string | null; slug?: string | null }[]): string {
+  if (!days || days.length === 0) {
+    return 'Sin dias asignados';
+  }
+
+  return days.map((day) => day.name ?? day.slug ?? 'Dia').join(', ');
+}
+
 type RoutineExerciseMediaCardProps = {
   exercise: Exercise;
   isWideLayout: boolean;
@@ -143,6 +151,15 @@ export default function RoutineDetailScreen() {
               <TextBlock variant="eyebrow" color="primary">
                 Routine detail
               </TextBlock>
+              <View style={styles.daysBox}>
+                <MaterialCommunityIcons name="calendar-week" size={18} color={theme.colors.primary} />
+                <View style={styles.daysCopy}>
+                  <TextBlock variant="caption" color="muted">
+                    Plan semanal
+                  </TextBlock>
+                  <TextBlock variant="body">{getRoutineDaysLabel(item.days)}</TextBlock>
+                </View>
+              </View>
               <TextBlock variant="body" color="muted">
                 Desde aquí puedes revisar el orden, sets, reps, descanso y notas de cada ejercicio.
               </TextBlock>
@@ -255,6 +272,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  daysBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+  },
+  daysCopy: {
+    flex: 1,
+    gap: 2,
   },
   exerciseWrap: {
     marginBottom: 14,

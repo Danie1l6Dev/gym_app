@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\TranslateExerciseJob;
 use App\Jobs\TranslateMuscleJob;
 use App\Jobs\CheckExerciseGifJob;
+use App\Models\Day;
 use App\Models\Exercise;
 use App\Models\Membership;
 use App\Models\Muscle;
@@ -30,6 +31,7 @@ class GymAppApiTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $this->assertSame(2, Role::query()->count());
+        $this->assertSame(7, Day::query()->count());
         $this->assertSame(6, User::query()->count());
         $this->assertSame(10, Muscle::query()->count());
         $this->assertSame(8, Exercise::query()->count());
@@ -170,10 +172,14 @@ class GymAppApiTest extends TestCase
 
         $user = User::query()->where('email', 'user1@gymapp.com')->firstOrFail();
         $exercise = $this->createExercise();
+        $monday = Day::query()->where('slug', 'lunes')->firstOrFail();
+        $thursday = Day::query()->where('slug', 'jueves')->firstOrFail();
+        $sunday = Day::query()->where('slug', 'domingo')->firstOrFail();
 
         $response = $this->actingAs($user, 'sanctum')->postJson('/api/v1/routines', [
             'name' => 'Rutina de prueba',
             'description' => 'Rutina creada desde prueba automatizada.',
+            'days' => [$monday->id, $thursday->id, $sunday->id],
             'exercises' => [
                 [
                     'exercise_id' => $exercise->id,
@@ -188,7 +194,39 @@ class GymAppApiTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonPath('data.name', 'Rutina de prueba')
+            ->assertJsonPath('data.days.0.slug', 'lunes')
+            ->assertJsonPath('data.days.1.slug', 'jueves')
+            ->assertJsonPath('data.days.2.slug', 'domingo')
             ->assertJsonPath('data.exercises.0.pivot.sets', 3);
+    }
+
+    public function test_routine_days_reject_invalid_training_day_pairs(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $user = User::query()->where('email', 'user1@gymapp.com')->firstOrFail();
+        $exercise = $this->createExercise();
+        $monday = Day::query()->where('slug', 'lunes')->firstOrFail();
+        $tuesday = Day::query()->where('slug', 'martes')->firstOrFail();
+
+        $response = $this->actingAs($user, 'sanctum')->postJson('/api/v1/routines', [
+            'name' => 'Rutina mal planificada',
+            'description' => 'Combinacion invalida de dias.',
+            'days' => [$monday->id, $tuesday->id],
+            'exercises' => [
+                [
+                    'exercise_id' => $exercise->id,
+                    'position' => 1,
+                    'sets' => 3,
+                    'reps' => 10,
+                    'rest_seconds' => 60,
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('days');
     }
 
     public function test_admin_can_create_recommended_routine(): void

@@ -16,6 +16,9 @@ type RoutineCardProps = {
 function RoutineCardBase({ routine, exercisesCount = 0, onPress }: RoutineCardProps) {
   const theme = useTheme();
   const countLabel = `${exercisesCount} ejercicios`;
+  const daysLabel = routine.days?.length
+    ? routine.days.map((day) => day.name ?? day.slug ?? 'Dia').join(', ')
+    : null;
 
   return (
     <Pressable
@@ -57,6 +60,14 @@ function RoutineCardBase({ routine, exercisesCount = 0, onPress }: RoutineCardPr
             {countLabel}
           </TextBlock>
         </View>
+        {daysLabel ? (
+          <View style={styles.metaItem}>
+            <MaterialCommunityIcons name="calendar-week" size={18} color={theme.colors.primary} />
+            <TextBlock variant="caption" color="muted" numberOfLines={1}>
+              {daysLabel}
+            </TextBlock>
+          </View>
+        ) : null}
         <View style={styles.metaItem}>
           <TextBlock variant="caption" color="subtle">
             Ver detalle
@@ -101,6 +112,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
     gap: 12,
   },
   metaItem: {

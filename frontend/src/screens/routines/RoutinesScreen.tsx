@@ -48,6 +48,14 @@ function getNivel(r: Routine): string {
   return 'Intermedio';
 }
 
+function getRoutineDaysLabel(routine: Routine): string | null {
+  if (!routine.days || routine.days.length === 0) {
+    return null;
+  }
+
+  return routine.days.map((day) => day.name ?? day.slug ?? 'Dia').join(', ');
+}
+
 function RutinaCard({
   routine,
   exercisesCount,
@@ -76,6 +84,7 @@ function RutinaCard({
   const totalSets = (routine.exercises ?? []).reduce((sum: number, e: any) => {
     return sum + (e.pivot?.sets ?? e.sets ?? 0);
   }, 0);
+  const daysLabel = getRoutineDaysLabel(routine);
 
   return (
     <Pressable
@@ -136,6 +145,12 @@ function RutinaCard({
                   <Text style={styles.rStatText}>{totalSets} series</Text>
                 </View>
               )}
+              {daysLabel ? (
+                <View style={styles.rStat}>
+                  <MaterialCommunityIcons name="calendar-week" size={12} color="rgba(139,92,246,0.6)" />
+                  <Text style={styles.rStatText} numberOfLines={1}>{daysLabel}</Text>
+                </View>
+              ) : null}
             </View>
             <View style={styles.rActions}>
               {personal && (
@@ -793,11 +808,14 @@ const styles = StyleSheet.create({
   rStats: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    flexShrink: 1,
     gap: 16,
   },
   rStat: {
     flexDirection: 'row',
     alignItems: 'center',
+    maxWidth: 220,
     gap: 5,
   },
   rStatText: {

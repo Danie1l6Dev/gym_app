@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { Alert, Modal } from 'react-native';
 import {
+  Alert,
   FlatList,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -36,6 +37,61 @@ type SelectedExercise = {
   restSeconds: string;
   notes: string;
 };
+
+type WeekdayOption = {
+  id: number;
+  slug: string;
+  label: string;
+  shortLabel: string;
+  helper?: string;
+};
+
+const WEEKDAY_OPTIONS: WeekdayOption[] = [
+  { id: 1, slug: 'lunes', label: 'Lunes', shortLabel: 'Lun' },
+  { id: 2, slug: 'martes', label: 'Martes', shortLabel: 'Mar' },
+  { id: 3, slug: 'miercoles', label: 'Miercoles', shortLabel: 'Mie' },
+  { id: 4, slug: 'jueves', label: 'Jueves', shortLabel: 'Jue' },
+  { id: 5, slug: 'viernes', label: 'Viernes', shortLabel: 'Vie' },
+  { id: 6, slug: 'sabado', label: 'Sabado', shortLabel: 'Sab' },
+  { id: 7, slug: 'domingo', label: 'Domingo', shortLabel: 'Dom', helper: 'Se recomienda descansar' },
+];
+
+const ALLOWED_DAY_PAIRS: Record<string, string> = {
+  lunes: 'jueves',
+  martes: 'viernes',
+  miercoles: 'sabado',
+  jueves: 'lunes',
+  viernes: 'martes',
+  sabado: 'miercoles',
+};
+
+function canSelectWeekday(day: WeekdayOption, selectedDays: number[]): boolean {
+  if (day.slug === 'domingo' || selectedDays.includes(day.id)) {
+    return true;
+  }
+
+  const selectedTrainingDays = WEEKDAY_OPTIONS.filter(
+    (option) => selectedDays.includes(option.id) && option.slug !== 'domingo'
+  );
+
+  if (selectedTrainingDays.length === 0) {
+    return true;
+  }
+
+  if (selectedTrainingDays.length >= 2) {
+    return false;
+  }
+
+  return ALLOWED_DAY_PAIRS[selectedTrainingDays[0].slug] === day.slug;
+}
+
+function formatRoutineDays(days?: { label?: string | null; name?: string | null; slug?: string | null }[]): string {
+  if (!days || days.length === 0) {
+    return 'Sin dias asignados';
+  }
+
+  return days.map((day) => day.label ?? day.name ?? day.slug ?? 'Dia').join(', ');
+}
 
 function getSubmitErrorMessage(error: unknown, fallback: string): string {
   if (error && typeof error === 'object') {
@@ -129,7 +185,8 @@ function ExerciseSelectionCard({
   const description = getExerciseDescription(exercise);
   const muscleLabel =
     exercise.muscle?.display_name ?? exercise.muscle?.name_es ?? exercise.muscle?.name_en ?? '';
-  const shouldShowGif = Boolean(exercise.gif_url && exercise.gif_url !== failedGifUrl);
+  const gifUrl = exercise.gif_url && exercise.gif_url !== failedGifUrl ? exercise.gif_url : undefined;
+  const shouldShowGif = Boolean(gifUrl);
 
   return (
     <Pressable
@@ -149,13 +206,13 @@ function ExerciseSelectionCard({
       <View style={styles.exerciseImageWrap}>
         {shouldShowGif ? (
           <Image
-            source={{ uri: exercise.gif_url }}
+            source={{ uri: gifUrl }}
             style={styles.exerciseImage}
             contentFit="contain"
             contentPosition="center"
             cachePolicy="memory-disk"
             transition={120}
-            onError={() => setFailedGifUrl(exercise.gif_url ?? null)}
+            onError={() => setFailedGifUrl(gifUrl ?? null)}
           />
         ) : (
           <View style={styles.exercisePlaceholder}>
@@ -224,7 +281,7 @@ export default function CreateRoutineScreen() {
   );
 
   const scrollViewRef = useRef<ScrollView | null>(null);
-  const [exercisesSectionOffset, setExercisesSectionOffset] = useState<number>(0);
+  const [exercisesSectionOffset] = useState<number>(0);
   const [routineDetailsSectionOffset, setRoutineDetailsSectionOffset] = useState<number>(0);
   const [configSectionOffset, setConfigSectionOffset] = useState<number>(0);
   const routineDetailsOffsetRef = useRef(0);
@@ -340,6 +397,7 @@ export default function CreateRoutineScreen() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selected, setSelected] = useState<SelectedExercise[]>([]);
+  const [selectedDayIds, setSelectedDayIds] = useState<number[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [nameMissing, setNameMissing] = useState(false);
   const [isPredefined, setIsPredefined] = useState(false);
@@ -354,6 +412,7 @@ export default function CreateRoutineScreen() {
       setName(routineToEdit.name ?? '');
       setDescription(routineToEdit.description ?? '');
       setIsPredefined(Boolean(routineToEdit.is_predefined));
+      setSelectedDayIds((routineToEdit.days ?? []).map((day) => Number(day.id)));
       setSelected(
         (routineToEdit.exercises ?? []).map((exercise) => ({
           exercise,
@@ -414,6 +473,20 @@ export default function CreateRoutineScreen() {
 
   const selectedIds = useMemo(() => new Set(selected.map((entry) => String(entry.exercise.id))), [selected]);
 
+  function toggleDay(day: WeekdayOption) {
+    setSelectedDayIds((current) => {
+      if (current.includes(day.id)) {
+        return current.filter((id) => id !== day.id);
+      }
+
+      if (!canSelectWeekday(day, current)) {
+        return current;
+      }
+
+      return [...current, day.id].sort((a, b) => a - b);
+    });
+  }
+
   function toggleExercise(exercise: Exercise) {
     const id = String(exercise.id);
     if (selectedIds.has(id)) {
@@ -469,6 +542,7 @@ export default function CreateRoutineScreen() {
       name: trimmedName,
       description: description.trim() || null,
       is_predefined: isAdmin ? isPredefined : false,
+      days: selectedDayIds,
       exercises: buildRoutineExercises(selected),
     };
 
@@ -665,6 +739,60 @@ export default function CreateRoutineScreen() {
                 { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border, color: theme.colors.text },
               ]}
             />
+          </View>
+        </View>
+
+        <View
+          style={[
+            styles.sectionCard,
+            { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+          ]}>
+          <View style={[styles.sectionHeader, isCompactLayout && styles.sectionHeaderCompact]}>
+            <View style={styles.muscleHeaderText}>
+              <TextBlock variant="title">Plan semanal</TextBlock>
+              <TextBlock variant="caption" color="subtle">
+                {formatRoutineDays(WEEKDAY_OPTIONS.filter((day) => selectedDayIds.includes(day.id)))}
+              </TextBlock>
+            </View>
+            <TextBlock variant="caption" color="muted">
+              {selectedDayIds.length} dias
+            </TextBlock>
+          </View>
+
+          <View style={styles.dayGrid}>
+            {WEEKDAY_OPTIONS.map((day) => {
+              const isSelected = selectedDayIds.includes(day.id);
+              const isEnabled = canSelectWeekday(day, selectedDayIds);
+
+              return (
+                <Pressable
+                  key={day.slug}
+                  disabled={!isEnabled}
+                  onPress={() => toggleDay(day)}
+                  style={({ pressed }) => [
+                    styles.dayChip,
+                    {
+                      backgroundColor: isSelected ? theme.colors.backgroundSelected : theme.colors.backgroundSoft,
+                      borderColor: isSelected ? theme.colors.primary : theme.colors.border,
+                    },
+                    pressed && isEnabled && styles.pressed,
+                    !isEnabled && styles.dayChipDisabled,
+                  ]}>
+                  <View style={styles.dayChipHeader}>
+                    <Text style={[styles.dayChipShort, isSelected && styles.dayChipShortSelected]}>
+                      {day.shortLabel}
+                    </Text>
+                    <MaterialCommunityIcons
+                      name={isSelected ? 'check-circle' : 'circle-outline'}
+                      size={16}
+                      color={isSelected ? '#a78bfa' : 'rgba(255,255,255,0.22)'}
+                    />
+                  </View>
+                  <Text style={styles.dayChipLabel}>{day.label}</Text>
+                  {day.helper ? <Text style={styles.dayChipHelper}>{day.helper}</Text> : null}
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
@@ -1424,6 +1552,52 @@ const styles = StyleSheet.create({
   selectedText: {
     flex: 1,
     gap: 4,
+  },
+  dayGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  dayChip: {
+    flexGrow: 1,
+    flexBasis: 132,
+    minHeight: 88,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 6,
+  },
+  dayChipDisabled: {
+    opacity: 0.38,
+  },
+  dayChipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  dayChipShort: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: TYPOGRAPHY.fonts.mono,
+    textTransform: 'uppercase',
+  },
+  dayChipShortSelected: {
+    color: '#c4b5fd',
+  },
+  dayChipLabel: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  dayChipHelper: {
+    color: 'rgba(255,255,255,0.34)',
+    fontSize: 11,
+    lineHeight: 15,
+    fontFamily: TYPOGRAPHY.fonts.body,
   },
   row: {
     flexDirection: 'row',

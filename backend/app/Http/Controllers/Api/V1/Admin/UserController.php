@@ -110,9 +110,10 @@ class UserController extends Controller
         $relations = ['role', 'latestMembership.type', 'memberships.type'];
 
         if ($viewer?->id === $user->id) {
+            $relations[] = 'routines.days';
             $relations[] = 'routines.exercises.muscle';
         } else {
-            $relations['routines'] = fn ($query) => $query->where('is_predefined', true)->with('exercises.muscle');
+            $relations['routines'] = fn ($query) => $query->where('is_predefined', true)->with(['days', 'exercises.muscle']);
         }
 
         return UserResource::make($user->load($relations))
