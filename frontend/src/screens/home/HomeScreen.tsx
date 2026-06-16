@@ -46,10 +46,12 @@ function getDayDisplayName(slug: string): string {
 }
 
 function TodayRoutineBanner({
+  todaySlug,
   todayLabel,
   todaysRoutines,
   personalRoutineCount,
 }: {
+  todaySlug: string;
   todayLabel: string;
   todaysRoutines: Routine[];
   personalRoutineCount: number;
@@ -71,6 +73,14 @@ function TodayRoutineBanner({
       router.push({
         pathname: ROUTES.app.routineDetail,
         params: { id: String(todaysRoutines[0].id) },
+      });
+      return;
+    }
+
+    if (todaysRoutines.length > 1) {
+      router.push({
+        pathname: ROUTES.app.routines,
+        params: { day: todaySlug },
       });
       return;
     }
@@ -302,6 +312,7 @@ export default function HomeScreen() {
         </View>
 
         <TodayRoutineBanner
+          todaySlug={todaySlug}
           todayLabel={todayLabel}
           todaysRoutines={todaysRoutines}
           personalRoutineCount={personalRoutines.length}

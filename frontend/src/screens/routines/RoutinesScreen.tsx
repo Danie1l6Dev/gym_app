@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   FlatList,
@@ -46,6 +46,16 @@ const DAY_FILTERS: DayFilter[] = [
   { slug: 'sabado', label: 'Sabado' },
   { slug: 'domingo', label: 'Domingo' },
 ];
+
+function normalizeDayFilter(value: unknown): string | null {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+
+  if (typeof rawValue !== 'string') {
+    return null;
+  }
+
+  return DAY_FILTERS.some((day) => day.slug === rawValue) ? rawValue : null;
+}
 
 const NIVEL_STYLE: Record<string, { bg: string; color: string }> = {
   Principiante: { bg: 'rgba(52,211,153,0.1)', color: '#34d399' },
@@ -355,16 +365,17 @@ function EmptyRoutines({ onCrear }: { onCrear: () => void }) {
 }
 
 export default function RoutinesScreen() {
+  const params = useLocalSearchParams<{ day?: string }>();
   const { width } = useWindowDimensions();
   const { user } = useAuth();
   const { items, loading, refreshing, error, refresh, retry } = useRoutines();
   const { submit: deleteRoutineSubmit, loading: deleting, error: deleteError } = useDeleteRoutine();
   const isCompact = width < 768;
   const [activeTab, setActiveTab] = useState<RoutineTab>('mine');
-  const [selectedDayFilter, setSelectedDayFilter] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [deletingRoutineId, setDeletingRoutineId] = useState<string | null>(null);
   const [routinePendingDelete, setRoutinePendingDelete] = useState<Routine | null>(null);
+  const selectedDayFilter = normalizeDayFilter(params.day);
 
   const recommended = useMemo(
     () => items.filter((r) => Boolean(r.is_predefined)),
@@ -551,7 +562,7 @@ export default function RoutinesScreen() {
                   return (
                     <Pressable
                       key={day.slug ?? 'all'}
-                      onPress={() => setSelectedDayFilter(day.slug)}
+                      onPress={() => router.setParams({ day: day.slug ?? '' })}
                       style={({ hovered }) => [
                         styles.dayFilterChip,
                         {
