@@ -1,9 +1,11 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
 import { EmptyState } from '@/components/EmptyState';
-import { ExerciseCard } from '@/components/ExerciseCard';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
@@ -16,10 +18,57 @@ type RoutineParams = {
   id?: string;
 };
 
+const WIDE_EXERCISE_LAYOUT_BREAKPOINT = 760;
+
+type RoutineExerciseMediaCardProps = {
+  exercise: Exercise;
+  isWideLayout: boolean;
+  onPress: () => void;
+};
+
+function RoutineExerciseMediaCard({ exercise, isWideLayout, onPress }: RoutineExerciseMediaCardProps) {
+  const theme = useTheme();
+  const [failedGifUrl, setFailedGifUrl] = useState<string | null>(null);
+  const gifUrl = exercise.gif_url && exercise.gif_url !== failedGifUrl ? exercise.gif_url : undefined;
+  const shouldShowGif = Boolean(gifUrl);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.mediaCard,
+        isWideLayout && styles.mediaCardWide,
+        { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
+        pressed && styles.pressed,
+      ]}>
+      <View style={styles.mediaFrame}>
+        {shouldShowGif ? (
+          <Image
+            recyclingKey={String(exercise.id)}
+            source={{ uri: gifUrl }}
+            style={styles.mediaImage}
+            contentFit="contain"
+            contentPosition="center"
+            transition={140}
+            cachePolicy="memory-disk"
+            onError={() => setFailedGifUrl(gifUrl ?? null)}
+          />
+        ) : (
+          <View style={[styles.mediaPlaceholder, { backgroundColor: theme.colors.surfaceElevated }]}>
+            <MaterialCommunityIcons name="dumbbell" size={28} color={theme.colors.primary} />
+          </View>
+        )}
+      </View>
+    </Pressable>
+  );
+}
+
 export default function RoutineDetailScreen() {
   const theme = useTheme();
+  const { width } = useWindowDimensions();
   const { id } = useLocalSearchParams<RoutineParams>();
   const { item, loading, refreshing, error, refresh, retry } = useRoutine(id);
+  const isWideExerciseLayout = width >= WIDE_EXERCISE_LAYOUT_BREAKPOINT;
 
   if (loading && !item) {
     return (
@@ -112,20 +161,23 @@ export default function RoutineDetailScreen() {
         }
         renderItem={({ item: exercise, index }: { item: Exercise; index: number }) => {
           const pivot = exercise.pivot;
+          const goToExerciseDetail = () =>
+            router.push({
+              pathname: ROUTES.app.exerciseDetail,
+              params: { id: String(exercise.id) },
+            });
+
           return (
-            <View style={styles.exerciseWrap}>
-              <ExerciseCard
+            <View style={[styles.exerciseWrap, isWideExerciseLayout && styles.exerciseWrapWide]}>
+              <RoutineExerciseMediaCard
                 exercise={exercise}
-                onPress={() =>
-                  router.push({
-                    pathname: ROUTES.app.exerciseDetail,
-                    params: { id: String(exercise.id) },
-                  })
-                }
+                isWideLayout={isWideExerciseLayout}
+                onPress={goToExerciseDetail}
               />
               <View
                 style={[
                   styles.pivotCard,
+                  isWideExerciseLayout && styles.pivotCardWide,
                   { backgroundColor: theme.colors.surface, borderColor: theme.colors.border },
                 ]}>
                 <View style={styles.pivotHeader}>
@@ -209,11 +261,42 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     gap: 10,
   },
+  exerciseWrapWide: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 14,
+  },
+  mediaCard: {
+    borderRadius: DIMENSIONS.cardRadius,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  mediaCardWide: {
+    width: 340,
+    maxWidth: '42%',
+  },
+  mediaFrame: {
+    width: '100%',
+    aspectRatio: 16 / 10,
+  },
+  mediaImage: {
+    width: '100%',
+    height: '100%',
+  },
+  mediaPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   pivotCard: {
     borderRadius: DIMENSIONS.cardRadius,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 16,
     gap: 14,
+  },
+  pivotCardWide: {
+    flex: 1,
+    justifyContent: 'center',
   },
   pivotHeader: {
     flexDirection: 'row',
