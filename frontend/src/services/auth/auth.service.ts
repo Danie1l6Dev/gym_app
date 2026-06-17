@@ -8,6 +8,7 @@ type RawLoginResponse = {
   token?: string;
   access_token?: string;
   plainTextToken?: string;
+  expires_at?: string | null;
   token_type?: string;
   tokenType?: string;
   user?: User;
@@ -15,6 +16,7 @@ type RawLoginResponse = {
     token?: string;
     access_token?: string;
     plainTextToken?: string;
+    expires_at?: string | null;
     token_type?: string;
     tokenType?: string;
     user?: User;
@@ -66,6 +68,7 @@ export async function loginRequest(payload: LoginRequest): Promise<LoginResponse
 
   return {
     token,
+    expiresAt: data.expires_at ?? data.data?.expires_at ?? null,
     tokenType: data.token_type ?? data.tokenType ?? 'Bearer',
     user,
     message: data.message,

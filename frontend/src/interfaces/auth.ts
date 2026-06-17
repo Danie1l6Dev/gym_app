@@ -51,6 +51,7 @@ export interface UpdateProfilePayload {
 export interface LoginResponse {
   token: string;
   tokenType?: string;
+  expiresAt?: string | null;
   user: User;
   message?: string;
 }
@@ -70,4 +71,8 @@ export interface StoredAuthSession {
 export interface ApiErrorResponse {
   message?: string;
   errors?: Record<string, string[]>;
+  meta?: {
+    retry_after?: number;
+    retry_after_minutes?: number;
+  };
 }

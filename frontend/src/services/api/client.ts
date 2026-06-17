@@ -1,3 +1,5 @@
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import { AxiosError, create, type InternalAxiosRequestConfig } from 'axios';
 
 import { API_BASE_URL, API_TIMEOUT_MS } from '@/constants';
@@ -22,6 +24,14 @@ export const apiClient = create({
 
 apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   const url = config.url ?? '';
+
+  if (typeof config.headers.set === 'function') {
+    config.headers.set('X-Client-Platform', Platform.OS);
+    config.headers.set('X-Client-Version', Constants.expoConfig?.version ?? 'dev');
+  } else {
+    config.headers['X-Client-Platform'] = Platform.OS;
+    config.headers['X-Client-Version'] = Constants.expoConfig?.version ?? 'dev';
+  }
 
   if (url.includes('/api/v1/auth/login') || url.includes('/api/v1/auth/logout')) {
     return config;
@@ -92,6 +102,10 @@ function humanizeApiMessage(message?: string) {
     'validation.confirmed': 'La confirmacion de contrasena no coincide.',
     'validation.required': 'Completa los campos obligatorios.',
     'validation.unique': 'Ya existe un registro con ese valor.',
+    'No fue posible iniciar sesion con las credenciales proporcionadas.':
+      'Credenciales invalidas o cuenta inactiva. Verifica tus datos e intenta nuevamente.',
+    'Demasiados intentos de inicio de sesion. Intenta nuevamente mas tarde.':
+      'Demasiados intentos de inicio de sesion. Espera unos minutos antes de volver a intentar.',
   };
 
   return readableMessages[message] ?? message;

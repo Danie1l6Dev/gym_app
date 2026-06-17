@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   FlatList,
@@ -23,13 +23,40 @@ import { useAuth, useDeleteRoutine, useRoutines } from '@/hooks';
 import { TYPOGRAPHY } from '@/theme';
 import type { Exercise } from '@/interfaces/exercise';
 import type { Routine } from '@/interfaces/routine';
+import { shadowStyle } from '@/utils';
 
 type RoutineTab = 'recommended' | 'mine';
 
+type DayFilter = {
+  slug: string | null;
+  label: string;
+};
+
 const TABS: { key: RoutineTab; label: string; sub: string }[] = [
-  { key: 'recommended', label: 'Recomendadas', sub: 'Rutinas predefinidas del catÃ¡logo' },
   { key: 'mine', label: 'Mis rutinas', sub: 'Rutinas creadas o asignadas a tu usuario' },
+  { key: 'recommended', label: 'Recomendadas', sub: 'Rutinas predefinidas del catÃ¡logo' },
 ];
+
+const DAY_FILTERS: DayFilter[] = [
+  { slug: null, label: 'Todos' },
+  { slug: 'lunes', label: 'Lunes' },
+  { slug: 'martes', label: 'Martes' },
+  { slug: 'miercoles', label: 'Miercoles' },
+  { slug: 'jueves', label: 'Jueves' },
+  { slug: 'viernes', label: 'Viernes' },
+  { slug: 'sabado', label: 'Sabado' },
+  { slug: 'domingo', label: 'Domingo' },
+];
+
+function normalizeDayFilter(value: unknown): string | null {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+
+  if (typeof rawValue !== 'string') {
+    return null;
+  }
+
+  return DAY_FILTERS.some((day) => day.slug === rawValue) ? rawValue : null;
+}
 
 const NIVEL_STYLE: Record<string, { bg: string; color: string }> = {
   Principiante: { bg: 'rgba(52,211,153,0.1)', color: '#34d399' },
@@ -46,6 +73,14 @@ function getNivel(r: Routine): string {
   if (labels.has('Intermedio') || labels.has('intermediate')) return 'Intermedio';
   if (labels.has('Principiante') || labels.has('beginner')) return 'Principiante';
   return 'Intermedio';
+}
+
+function getRoutineDaysLabel(routine: Routine): string | null {
+  if (!routine.days || routine.days.length === 0) {
+    return null;
+  }
+
+  return routine.days.map((day) => day.name ?? day.slug ?? 'Dia').join(', ');
 }
 
 function RutinaCard({
@@ -76,6 +111,7 @@ function RutinaCard({
   const totalSets = (routine.exercises ?? []).reduce((sum: number, e: any) => {
     return sum + (e.pivot?.sets ?? e.sets ?? 0);
   }, 0);
+  const daysLabel = getRoutineDaysLabel(routine);
 
   return (
     <Pressable
@@ -84,11 +120,12 @@ function RutinaCard({
         styles.rCard,
         {
           borderColor: hovered ? 'rgba(139,92,246,0.48)' : 'rgba(139,92,246,0.14)',
-          shadowColor: hovered ? 'rgba(109,40,217,0.14)' : 'transparent',
-          shadowOpacity: 0.4,
-          shadowRadius: 28,
-          shadowOffset: { width: 0, height: 0 },
-          elevation: hovered ? 6 : 0,
+          ...shadowStyle({
+            color: hovered ? 'rgba(109,40,217,0.14)' : 'transparent',
+            opacity: 0.4,
+            radius: 28,
+            elevation: hovered ? 6 : 0,
+          }),
         },
       ]}>
       {({ hovered }) => (
@@ -136,6 +173,12 @@ function RutinaCard({
                   <Text style={styles.rStatText}>{totalSets} series</Text>
                 </View>
               )}
+              {daysLabel ? (
+                <View style={styles.rStat}>
+                  <MaterialCommunityIcons name="calendar-week" size={12} color="rgba(139,92,246,0.6)" />
+                  <Text style={styles.rStatText} numberOfLines={1}>{daysLabel}</Text>
+                </View>
+              ) : null}
             </View>
             <View style={styles.rActions}>
               {personal && (
@@ -205,7 +248,18 @@ function CrearRutinaModal({ visible, onClose }: { visible: boolean; onClose: () 
                 placeholderTextColor="rgba(255,255,255,0.25)"
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
-                style={[styles.modalInput, focused && { borderColor: 'rgba(139,92,246,0.85)', shadowColor: 'rgba(109,40,217,0.12)', shadowOpacity: 1, shadowRadius: 3, shadowOffset: { width: 0, height: 0 }, elevation: 3 }]}
+                style={[
+                  styles.modalInput,
+                  focused && {
+                    borderColor: 'rgba(139,92,246,0.85)',
+                    ...shadowStyle({
+                      color: 'rgba(109,40,217,0.12)',
+                      opacity: 1,
+                      radius: 3,
+                      elevation: 3,
+                    }),
+                  },
+                ]}
               />
             </View>
             <View>
@@ -324,15 +378,17 @@ function EmptyRoutines({ onCrear }: { onCrear: () => void }) {
 }
 
 export default function RoutinesScreen() {
+  const params = useLocalSearchParams<{ day?: string }>();
   const { width } = useWindowDimensions();
   const { user } = useAuth();
   const { items, loading, refreshing, error, refresh, retry } = useRoutines();
   const { submit: deleteRoutineSubmit, loading: deleting, error: deleteError } = useDeleteRoutine();
   const isCompact = width < 768;
-  const [activeTab, setActiveTab] = useState<RoutineTab>('recommended');
+  const [activeTab, setActiveTab] = useState<RoutineTab>('mine');
   const [modalVisible, setModalVisible] = useState(false);
   const [deletingRoutineId, setDeletingRoutineId] = useState<string | null>(null);
   const [routinePendingDelete, setRoutinePendingDelete] = useState<Routine | null>(null);
+  const selectedDayFilter = normalizeDayFilter(params.day);
 
   const recommended = useMemo(
     () => items.filter((r) => Boolean(r.is_predefined)),
@@ -346,11 +402,24 @@ export default function RoutinesScreen() {
     [items, user?.id],
   );
 
-  const data = activeTab === 'recommended' ? recommended : mine;
+  const baseData = activeTab === 'recommended' ? recommended : mine;
+  const data = useMemo(
+    () => {
+      if (!selectedDayFilter) {
+        return baseData;
+      }
+
+      return baseData.filter((routine) =>
+        (routine.days ?? []).some((day) => day.slug === selectedDayFilter)
+      );
+    },
+    [baseData, selectedDayFilter],
+  );
   const title = activeTab === 'recommended' ? 'Rutinas recomendadas' : 'Mis rutinas';
   const subtitle = activeTab === 'recommended'
     ? 'Plantillas listas para usar con los ejercicios del sistema.'
     : 'Rutinas personalizadas vinculadas a tu perfil.';
+  const activeDayLabel = DAY_FILTERS.find((day) => day.slug === selectedDayFilter)?.label ?? 'Todos';
 
   function handleDeleteRoutine(routine: Routine) {
     if (deleting) {
@@ -432,11 +501,13 @@ export default function RoutinesScreen() {
                   styles.createBtn,
                   isCompact && styles.createBtnCompact,
                   {
-                    shadowColor: hovered ? 'rgba(109,40,217,0.52)' : 'rgba(109,40,217,0.32)',
-                    shadowOpacity: 0.5,
-                    shadowRadius: hovered ? 36 : 22,
-                    shadowOffset: { width: 0, height: hovered ? -1 : 0 },
-                    elevation: hovered ? 10 : 6,
+                    ...shadowStyle({
+                      color: hovered ? 'rgba(109,40,217,0.52)' : 'rgba(109,40,217,0.32)',
+                      opacity: 0.5,
+                      radius: hovered ? 36 : 22,
+                      offsetY: hovered ? -1 : 0,
+                      elevation: hovered ? 10 : 6,
+                    }),
                     transform: hovered && Platform.OS === 'web' ? [{ translateY: -1 }] : [],
                   },
                 ]}>
@@ -489,10 +560,59 @@ export default function RoutinesScreen() {
                 );
               })}
             </View>
+
+            <View style={styles.filterCard}>
+              <View style={styles.filterHeader}>
+                <View>
+                  <Text style={styles.filterEyebrow}>Filtro por dia</Text>
+                  <Text style={styles.filterTitle}>{activeDayLabel}</Text>
+                </View>
+                <View style={styles.filterCount}>
+                  <Text style={styles.filterCountText}>{data.length}</Text>
+                </View>
+              </View>
+              <View style={styles.dayFilterList}>
+                {DAY_FILTERS.map((day) => {
+                  const active = selectedDayFilter === day.slug;
+                  return (
+                    <Pressable
+                      key={day.slug ?? 'all'}
+                      onPress={() => router.setParams({ day: day.slug ?? '' })}
+                      style={({ hovered }) => [
+                        styles.dayFilterChip,
+                        {
+                          backgroundColor: active
+                            ? 'rgba(109,40,217,0.18)'
+                            : hovered
+                              ? 'rgba(139,92,246,0.08)'
+                              : 'rgba(255,255,255,0.02)',
+                          borderColor: active ? 'rgba(167,139,250,0.55)' : 'rgba(139,92,246,0.14)',
+                        },
+                      ]}>
+                      <Text style={[styles.dayFilterText, active && styles.dayFilterTextActive]}>
+                        {day.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
           </View>
         }
         ListEmptyComponent={
-          <EmptyRoutines onCrear={() => setModalVisible(true)} />
+          selectedDayFilter ? (
+            <View style={styles.emptyCard}>
+              <View style={styles.emptyIconWrap}>
+                <MaterialCommunityIcons name="calendar-search" size={22} color="#a78bfa" />
+              </View>
+              <Text style={styles.emptyTitle}>Sin rutinas para este dia</Text>
+              <Text style={styles.emptyDesc}>
+                Cambia el filtro o edita una rutina para asociarla a {activeDayLabel}.
+              </Text>
+            </View>
+          ) : (
+            <EmptyRoutines onCrear={() => setModalVisible(true)} />
+          )
         }
         renderItem={({ item }: { item: Routine }) => (
           <RutinaCard
@@ -699,6 +819,71 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: TYPOGRAPHY.fonts.mono,
   },
+  filterCard: {
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 20,
+    backgroundColor: '#090910',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.14)',
+    gap: 14,
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  filterEyebrow: {
+    fontSize: 9,
+    fontFamily: TYPOGRAPHY.fonts.mono,
+    letterSpacing: 1.8,
+    color: '#8b5cf6',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  filterTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  filterCount: {
+    minWidth: 34,
+    height: 28,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(139,92,246,0.12)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.3)',
+  },
+  filterCountText: {
+    color: '#a78bfa',
+    fontSize: 11,
+    fontFamily: TYPOGRAPHY.fonts.mono,
+  },
+  dayFilterList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  dayFilterChip: {
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  dayFilterText: {
+    color: 'rgba(255,255,255,0.42)',
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  dayFilterTextActive: {
+    color: '#c4b5fd',
+  },
   rCard: {
     borderRadius: 16,
     padding: 22,
@@ -793,11 +978,14 @@ const styles = StyleSheet.create({
   rStats: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    flexShrink: 1,
     gap: 16,
   },
   rStat: {
     flexDirection: 'row',
     alignItems: 'center',
+    maxWidth: 220,
     gap: 5,
   },
   rStatText: {
@@ -873,11 +1061,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#5b21b6',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(139,92,246,0.5)',
-    shadowColor: 'rgba(109,40,217,0.28)',
-    shadowOpacity: 0.5,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
+    ...shadowStyle({
+      color: 'rgba(109,40,217,0.28)',
+      opacity: 0.5,
+      radius: 18,
+      elevation: 6,
+    }),
   },
   emptyBtnText: {
     color: '#fff',
@@ -900,11 +1089,12 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(139,92,246,0.3)',
     padding: 28,
-    shadowColor: 'rgba(109,40,217,0.25)',
-    shadowOpacity: 0.5,
-    shadowRadius: 60,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 12,
+    ...shadowStyle({
+      color: 'rgba(109,40,217,0.25)',
+      opacity: 0.5,
+      radius: 60,
+      elevation: 12,
+    }),
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1008,11 +1198,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#5b21b6',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(139,92,246,0.5)',
-    shadowColor: 'rgba(109,40,217,0.3)',
-    shadowOpacity: 0.5,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
+    ...shadowStyle({
+      color: 'rgba(109,40,217,0.3)',
+      opacity: 0.5,
+      radius: 18,
+      elevation: 6,
+    }),
   },
   modalCreateText: {
     color: '#fff',
@@ -1028,11 +1219,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(127,29,29,0.9)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(248,113,113,0.5)',
-    shadowColor: 'rgba(248,113,113,0.24)',
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
+    ...shadowStyle({
+      color: 'rgba(248,113,113,0.24)',
+      opacity: 0.45,
+      radius: 18,
+      elevation: 6,
+    }),
   },
   modalDeleteText: {
     color: '#fff',

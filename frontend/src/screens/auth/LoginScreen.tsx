@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { TextBlock } from '@/components/TextBlock';
 import { useAuth } from '@/hooks/use-auth';
 import { TYPOGRAPHY } from '@/theme';
+import { shadowStyle } from '@/utils';
 
 const FEATURE_ITEMS = [
   { icon: '✓', label: 'Control de acceso al gym' },
@@ -33,6 +34,7 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
+  const [hoveredFeature, setHoveredFeature] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -90,33 +92,35 @@ export default function LoginScreen() {
               </TextBlock>
             </View>
 
-            <View style={styles.featureList}>
-              {FEATURE_ITEMS.map((item) => (
-                <Pressable
+              <View style={styles.featureList}>
+              {FEATURE_ITEMS.map((item) => {
+                const isHovered = hoveredFeature === item.label;
+
+                return (
+                  <Pressable
                   key={item.label}
-                  accessibilityRole="button"
-                  style={({ hovered, pressed }) => [
-                    styles.featureRow,
-                    hovered && styles.featureRowHovered,
-                    pressed && styles.featureRowPressed,
-                  ]}>
-                  {({ hovered }) => (
-                    <>
-                      <View style={[styles.featureIconTile, hovered && styles.featureIconTileHover]}>
-                        <TextBlock style={[styles.featureIcon, hovered && styles.featureIconHover]}>
+                  onHoverIn={() => setHoveredFeature(item.label)}
+                  onHoverOut={() =>
+                    setHoveredFeature((current) => (current === item.label ? null : current))
+                  }
+                  onPress={() => undefined}
+                  style={styles.featureRow}>
+                    <View style={[styles.featureRowInner, isHovered && styles.featureRowHovered]}>
+                      <View style={[styles.featureIconTile, isHovered && styles.featureIconTileHover]}>
+                        <TextBlock style={[styles.featureIcon, isHovered && styles.featureIconHover]}>
                           {item.icon}
                         </TextBlock>
                       </View>
-                      <TextBlock style={[styles.featureText, hovered && styles.featureTextHover]}>
+                      <TextBlock style={[styles.featureText, isHovered && styles.featureTextHover]}>
                         {item.label}
                       </TextBlock>
-                      <TextBlock style={[styles.chevronIcon, hovered && styles.chevronIconHover]}>
+                      <TextBlock style={[styles.chevronIcon, isHovered && styles.chevronIconHover]}>
                         ›
                       </TextBlock>
-                    </>
-                  )}
-                </Pressable>
-              ))}
+                    </View>
+                  </Pressable>
+                );
+              })}
             </View>
 
             <TextBlock style={styles.footerCode}>GYM-PP-2026 · Ponte Piñuo</TextBlock>
@@ -398,6 +402,15 @@ const styles = StyleSheet.create({
     maxWidth: 512,
   },
   featureRow: {
+    borderRadius: 8,
+    ...Platform.select({
+      web: {
+        cursor: 'default',
+      },
+      default: {},
+    }),
+  },
+  featureRowInner: {
     minHeight: 44,
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
@@ -420,10 +433,6 @@ const styles = StyleSheet.create({
         elevation: 2,
       },
     }),
-  },
-  featureRowPressed: {
-    transform: [{ scale: 0.99 }],
-    opacity: 0.92,
   },
   featureIconTile: {
     width: 28,
@@ -675,16 +684,10 @@ const styles = StyleSheet.create({
   inputFocused: {
     borderColor: '#A78BFA',
     backgroundColor: '#030106',
-    ...Platform.select({
-      web: {
-        boxShadow: '0 0 0 3px rgba(124, 58, 237, 0.14)',
-      },
-      default: {
-        shadowColor: '#7C3AED',
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 0 },
-      },
+    ...shadowStyle({
+      color: '#7C3AED',
+      opacity: 0.14,
+      radius: 3,
     }),
   },
   passwordInputWrap: {
@@ -798,29 +801,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     backgroundColor: '#7C3AED',
     marginTop: 26,
-    ...Platform.select({
-      web: {
-        boxShadow: '0 12px 30px rgba(124, 58, 237, 0.34)',
-      },
-      default: {
-        elevation: 6,
-        shadowColor: '#7C3AED',
-        shadowOpacity: 0.3,
-        shadowRadius: 18,
-        shadowOffset: { width: 0, height: 10 },
-      },
+    ...shadowStyle({
+      color: '#7C3AED',
+      opacity: 0.3,
+      radius: 18,
+      offsetY: 10,
+      elevation: 6,
     }),
   },
   primaryButtonHover: {
     backgroundColor: '#8B5CF6',
     transform: [{ translateY: -1 }],
-    ...Platform.select({
-      web: {
-        boxShadow: '0 18px 38px rgba(139, 92, 246, 0.42)',
-      },
-      default: {
-        elevation: 8,
-      },
+    ...shadowStyle({
+      color: '#8B5CF6',
+      opacity: 0.42,
+      radius: 38,
+      offsetY: 18,
+      elevation: 8,
     }),
   },
   buttonLabel: {

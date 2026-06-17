@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Exercise;
+use App\Models\Day;
 use App\Models\Routine;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -22,6 +23,8 @@ class RoutinesSeeder extends Seeder
             'hip_thrust' => Exercise::query()->where('external_id', 'hip-thrust')->value('id'),
         ];
 
+        $dayIds = Day::query()->pluck('id', 'slug');
+
         $admin = User::query()->where('email', 'admin@gymapp.com')->firstOrFail();
         $user1 = User::query()->where('email', 'user1@gymapp.com')->firstOrFail();
         $user2 = User::query()->where('email', 'user2@gymapp.com')->firstOrFail();
@@ -33,6 +36,7 @@ class RoutinesSeeder extends Seeder
                 'name' => 'Push Pull Legs',
                 'description' => 'Rutina semanal clasica para volumen y progresion.',
                 'is_predefined' => true,
+                'days' => ['lunes', 'jueves'],
                 'exercises' => [
                     ['id' => $exerciseIds['bench_press'], 'position' => 1, 'sets' => 4, 'reps' => 8, 'rest_seconds' => 90, 'notes' => 'Mantener tecnica estricta.'],
                     ['id' => $exerciseIds['military_press'], 'position' => 2, 'sets' => 4, 'reps' => 10, 'rest_seconds' => 90, 'notes' => 'Control en la fase excéntrica.'],
@@ -44,6 +48,7 @@ class RoutinesSeeder extends Seeder
                 'name' => 'Full Body',
                 'description' => 'Rutina completa para usuarios que entrenan tres dias.',
                 'is_predefined' => true,
+                'days' => ['martes', 'viernes'],
                 'exercises' => [
                     ['id' => $exerciseIds['back_squat'], 'position' => 1, 'sets' => 4, 'reps' => 8, 'rest_seconds' => 120, 'notes' => 'Priorizar profundidad.'],
                     ['id' => $exerciseIds['deadlift'], 'position' => 2, 'sets' => 3, 'reps' => 6, 'rest_seconds' => 150, 'notes' => 'Carga moderada.'],
@@ -55,6 +60,7 @@ class RoutinesSeeder extends Seeder
                 'name' => 'Rutina Principiante',
                 'description' => 'Enfoque en tecnica, adaptacion y consistencia.',
                 'is_predefined' => false,
+                'days' => ['miercoles', 'sabado'],
                 'exercises' => [
                     ['id' => $exerciseIds['back_squat'], 'position' => 1, 'sets' => 3, 'reps' => 10, 'rest_seconds' => 90, 'notes' => 'Peso ligero-moderado.'],
                     ['id' => $exerciseIds['bench_press'], 'position' => 2, 'sets' => 3, 'reps' => 10, 'rest_seconds' => 90, 'notes' => 'Asegurar rango completo.'],
@@ -66,6 +72,7 @@ class RoutinesSeeder extends Seeder
                 'name' => 'Rutina Hipertrofia',
                 'description' => 'Rutina orientada a volumen muscular.',
                 'is_predefined' => false,
+                'days' => ['lunes', 'jueves', 'domingo'],
                 'exercises' => [
                     ['id' => $exerciseIds['bench_press'], 'position' => 1, 'sets' => 4, 'reps' => 8, 'rest_seconds' => 90, 'notes' => 'Progresar carga semanalmente.'],
                     ['id' => $exerciseIds['hip_thrust'], 'position' => 2, 'sets' => 4, 'reps' => 12, 'rest_seconds' => 75, 'notes' => 'Foco en gluteos.'],
@@ -78,6 +85,7 @@ class RoutinesSeeder extends Seeder
                 'name' => 'Rutina Upper Lower',
                 'description' => 'Divide el entrenamiento en tren superior e inferior.',
                 'is_predefined' => false,
+                'days' => ['martes', 'viernes'],
                 'exercises' => [
                     ['id' => $exerciseIds['military_press'], 'position' => 1, 'sets' => 4, 'reps' => 8, 'rest_seconds' => 90, 'notes' => 'Tren superior.'],
                     ['id' => $exerciseIds['deadlift'], 'position' => 2, 'sets' => 4, 'reps' => 6, 'rest_seconds' => 150, 'notes' => 'Tren inferior.'],
@@ -110,6 +118,14 @@ class RoutinesSeeder extends Seeder
                         ],
                     ];
                 })->all()
+            );
+
+            $routine->days()->sync(
+                collect($routineData['days'] ?? [])
+                    ->map(fn (string $slug): ?int => $dayIds->get($slug))
+                    ->filter()
+                    ->values()
+                    ->all()
             );
         }
     }

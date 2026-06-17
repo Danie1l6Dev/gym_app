@@ -1,29 +1,24 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useState } from 'react';
+import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useAuth } from '@/hooks/use-auth';
 import { TYPOGRAPHY } from '@/theme';
 
-function TopBtn({ icon }: { icon: string }) {
-  return (
-    <Pressable
-      style={({ hovered }) => [
-        styles.topBtn,
-        {
-          backgroundColor: hovered ? 'rgba(139,92,246,0.1)' : 'transparent',
-          borderColor: hovered ? 'rgba(139,92,246,0.3)' : 'transparent',
-        },
-      ]}>
-      {({ hovered }) => (
-        <MaterialCommunityIcons
-          name={icon}
-          size={15}
-          color={hovered ? '#a78bfa' : 'rgba(255,255,255,0.3)'}
-        />
-      )}
-    </Pressable>
-  );
-}
-
 export function TopBar() {
+  const { logout } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+
+    try {
+      await logout();
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }
+
   return (
     <View style={styles.topBar}>
       <View style={styles.topBarLeft}>
@@ -35,10 +30,20 @@ export function TopBar() {
         <Text style={styles.topBarTitle}>GYM Ponte Piñuo</Text>
       </View>
       <View style={styles.topBarRight}>
-        <TopBtn icon="bell-outline" />
-        <TopBtn icon="cog-outline" />
-        <Pressable style={styles.logoutBtn}>
-          <Text style={styles.logoutText}>Salir</Text>
+        <Pressable
+          onPress={() => void handleLogout()}
+          disabled={isLoggingOut}
+          style={({ hovered, pressed }) => [
+            styles.logoutBtn,
+            hovered && !isLoggingOut && styles.logoutBtnHover,
+            pressed && styles.logoutBtnPressed,
+            isLoggingOut && styles.logoutBtnDisabled,
+          ]}>
+          {({ hovered }) => (
+            <Text style={[styles.logoutText, hovered && !isLoggingOut && styles.logoutTextHover]}>
+              {isLoggingOut ? 'Saliendo...' : 'Salir'}
+            </Text>
+          )}
         </Pressable>
       </View>
     </View>
@@ -76,16 +81,6 @@ const styles = StyleSheet.create({
   topBarRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-  },
-  topBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   logoutBtn: {
     marginLeft: 8,
@@ -96,10 +91,33 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(139,92,246,0.28)',
   },
+  logoutBtnHover: {
+    borderColor: '#7C3AED',
+    backgroundColor: '#140B22',
+    transform: [{ translateX: 3 }],
+    ...Platform.select({
+      web: {
+        boxShadow: '0 10px 24px rgba(124, 58, 237, 0.18)',
+      },
+      default: {
+        elevation: 2,
+      },
+    }),
+  },
+  logoutBtnPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.99 }],
+  },
+  logoutBtnDisabled: {
+    opacity: 0.6,
+  },
   logoutText: {
     color: 'rgba(167,139,250,0.8)',
     fontSize: 11,
     fontFamily: TYPOGRAPHY.fonts.body,
     letterSpacing: 0.4,
+  },
+  logoutTextHover: {
+    color: '#F4F4F5',
   },
 });

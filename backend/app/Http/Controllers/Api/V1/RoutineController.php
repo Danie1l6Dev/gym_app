@@ -19,7 +19,7 @@ class RoutineController extends Controller
         $user = $request->user();
 
         $routines = Routine::query()
-            ->with(['user', 'exercises.muscle'])
+            ->with(['user', 'days', 'exercises.muscle'])
             ->visibleTo($user)
             ->latest()
             ->paginate($filters['per_page'] ?? 15);
@@ -42,8 +42,9 @@ class RoutineController extends Controller
         ]);
 
         $this->syncExercises($routine, $data['exercises'] ?? []);
+        $this->syncDays($routine, $data['days'] ?? []);
 
-        return RoutineResource::make($routine->load(['user', 'exercises.muscle']))
+        return RoutineResource::make($routine->load(['user', 'days', 'exercises.muscle']))
             ->additional(['message' => 'Rutina creada correctamente.'])
             ->response()
             ->setStatusCode(201);
@@ -53,7 +54,7 @@ class RoutineController extends Controller
     {
         $this->authorizeViewAccess($routine, request()->user());
 
-        return RoutineResource::make($routine->load(['user', 'exercises.muscle']))
+        return RoutineResource::make($routine->load(['user', 'days', 'exercises.muscle']))
             ->additional(['message' => 'Rutina obtenida correctamente.'])
             ->response();
     }
@@ -82,7 +83,11 @@ class RoutineController extends Controller
             $this->syncExercises($routine, $data['exercises']);
         }
 
-        return RoutineResource::make($routine->load(['user', 'exercises.muscle']))
+        if (array_key_exists('days', $data)) {
+            $this->syncDays($routine, $data['days']);
+        }
+
+        return RoutineResource::make($routine->load(['user', 'days', 'exercises.muscle']))
             ->additional(['message' => 'Rutina actualizada correctamente.'])
             ->response();
     }
@@ -151,5 +156,10 @@ class RoutineController extends Controller
         }
 
         $routine->exercises()->sync($payload);
+    }
+
+    private function syncDays(Routine $routine, array $days): void
+    {
+        $routine->days()->sync($days);
     }
 }

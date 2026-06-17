@@ -41,6 +41,13 @@ class Routine extends Model
             ->orderBy('routine_exercises.position');
     }
 
+    public function days(): BelongsToMany
+    {
+        return $this->belongsToMany(Day::class, 'routine_days')
+            ->withTimestamps()
+            ->orderBy('days.sort_order');
+    }
+
     public function routineExercises(): HasMany
     {
         return $this->hasMany(RoutineExercise::class);

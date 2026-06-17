@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\TranslateExerciseJob;
 use App\Jobs\TranslateMuscleJob;
 use App\Jobs\CheckExerciseGifJob;
+use App\Models\Day;
 use App\Models\Exercise;
 use App\Models\Membership;
 use App\Models\Muscle;
@@ -18,6 +19,7 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Laravel\Sanctum\PersonalAccessToken;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -30,6 +32,7 @@ class GymAppApiTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $this->assertSame(2, Role::query()->count());
+        $this->assertSame(7, Day::query()->count());
         $this->assertSame(6, User::query()->count());
         $this->assertSame(10, Muscle::query()->count());
         $this->assertSame(8, Exercise::query()->count());
@@ -54,9 +57,78 @@ class GymAppApiTest extends TestCase
             ->assertJsonStructure([
                 'data' => [
                     'token',
+                    'expires_at',
                     'user' => ['id', 'email', 'role', 'latest_membership'],
                 ],
             ]);
+    }
+
+    public function test_login_blocks_inactive_accounts_even_with_correct_password(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $user = User::query()->where('email', 'user1@gymapp.com')->firstOrFail();
+        $user->forceFill(['is_active' => false])->save();
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => 'user1@gymapp.com',
+            'password' => 'password',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath(
+                'message',
+                'No fue posible iniciar sesion con las credenciales proporcionadas.'
+            );
+    }
+
+    public function test_login_is_rate_limited_after_five_failed_attempts(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        foreach (range(1, 5) as $attempt) {
+            $this->postJson('/api/v1/auth/login', [
+                'email' => 'user1@gymapp.com',
+                'password' => 'incorrecta',
+            ])->assertUnprocessable();
+        }
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => 'user1@gymapp.com',
+            'password' => 'incorrecta',
+        ])
+            ->assertStatus(429)
+            ->assertJsonPath(
+                'message',
+                'Demasiados intentos de inicio de sesion. Intenta nuevamente mas tarde.'
+            )
+            ->assertJsonStructure([
+                'meta' => ['retry_after', 'retry_after_minutes'],
+            ]);
+    }
+
+    public function test_login_rotates_previous_tokens_and_keeps_only_latest_session(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $user = User::query()->where('email', 'user1@gymapp.com')->firstOrFail();
+        $firstToken = $user->createToken('legacy-session')->plainTextToken;
+        $firstTokenId = explode('|', $firstToken)[0] ?? null;
+
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => 'user1@gymapp.com',
+            'password' => 'password',
+        ]);
+
+        $response->assertOk();
+
+        $plainTextToken = $response->json('data.token');
+        $tokenId = explode('|', $plainTextToken)[0] ?? null;
+
+        $this->assertSame(1, $user->tokens()->count());
+        $this->assertNotNull($tokenId);
+        $this->assertNotNull($firstTokenId);
+        $this->assertFalse(PersonalAccessToken::query()->whereKey($firstTokenId)->exists());
+        $this->assertTrue(PersonalAccessToken::query()->whereKey($tokenId)->exists());
     }
 
     public function test_public_catalog_endpoints_return_muscles_and_exercises(): void
@@ -170,10 +242,14 @@ class GymAppApiTest extends TestCase
 
         $user = User::query()->where('email', 'user1@gymapp.com')->firstOrFail();
         $exercise = $this->createExercise();
+        $monday = Day::query()->where('slug', 'lunes')->firstOrFail();
+        $thursday = Day::query()->where('slug', 'jueves')->firstOrFail();
+        $sunday = Day::query()->where('slug', 'domingo')->firstOrFail();
 
         $response = $this->actingAs($user, 'sanctum')->postJson('/api/v1/routines', [
             'name' => 'Rutina de prueba',
             'description' => 'Rutina creada desde prueba automatizada.',
+            'days' => [$monday->id, $thursday->id, $sunday->id],
             'exercises' => [
                 [
                     'exercise_id' => $exercise->id,
@@ -188,7 +264,39 @@ class GymAppApiTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonPath('data.name', 'Rutina de prueba')
+            ->assertJsonPath('data.days.0.slug', 'lunes')
+            ->assertJsonPath('data.days.1.slug', 'jueves')
+            ->assertJsonPath('data.days.2.slug', 'domingo')
             ->assertJsonPath('data.exercises.0.pivot.sets', 3);
+    }
+
+    public function test_routine_days_reject_invalid_training_day_pairs(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $user = User::query()->where('email', 'user1@gymapp.com')->firstOrFail();
+        $exercise = $this->createExercise();
+        $monday = Day::query()->where('slug', 'lunes')->firstOrFail();
+        $tuesday = Day::query()->where('slug', 'martes')->firstOrFail();
+
+        $response = $this->actingAs($user, 'sanctum')->postJson('/api/v1/routines', [
+            'name' => 'Rutina mal planificada',
+            'description' => 'Combinacion invalida de dias.',
+            'days' => [$monday->id, $tuesday->id],
+            'exercises' => [
+                [
+                    'exercise_id' => $exercise->id,
+                    'position' => 1,
+                    'sets' => 3,
+                    'reps' => 10,
+                    'rest_seconds' => 60,
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('days');
     }
 
     public function test_admin_can_create_recommended_routine(): void

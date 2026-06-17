@@ -16,6 +16,7 @@ class RoutineResource extends JsonResource
             'description' => $this->description,
             'is_predefined' => $this->is_predefined,
             'user' => UserResource::make($this->whenLoaded('user')),
+            'days' => DayResource::collection($this->whenLoaded('days')),
             'exercises' => ExerciseResource::collection($this->whenLoaded('exercises')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
