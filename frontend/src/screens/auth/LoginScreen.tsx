@@ -33,6 +33,7 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
+  const [hoveredFeature, setHoveredFeature] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -90,33 +91,35 @@ export default function LoginScreen() {
               </TextBlock>
             </View>
 
-            <View style={styles.featureList}>
-              {FEATURE_ITEMS.map((item) => (
-                <Pressable
+              <View style={styles.featureList}>
+              {FEATURE_ITEMS.map((item) => {
+                const isHovered = hoveredFeature === item.label;
+
+                return (
+                  <Pressable
                   key={item.label}
-                  accessibilityRole="button"
-                  style={({ hovered, pressed }) => [
-                    styles.featureRow,
-                    hovered && styles.featureRowHovered,
-                    pressed && styles.featureRowPressed,
-                  ]}>
-                  {({ hovered }) => (
-                    <>
-                      <View style={[styles.featureIconTile, hovered && styles.featureIconTileHover]}>
-                        <TextBlock style={[styles.featureIcon, hovered && styles.featureIconHover]}>
+                  onHoverIn={() => setHoveredFeature(item.label)}
+                  onHoverOut={() =>
+                    setHoveredFeature((current) => (current === item.label ? null : current))
+                  }
+                  onPress={() => undefined}
+                  style={styles.featureRow}>
+                    <View style={[styles.featureRowInner, isHovered && styles.featureRowHovered]}>
+                      <View style={[styles.featureIconTile, isHovered && styles.featureIconTileHover]}>
+                        <TextBlock style={[styles.featureIcon, isHovered && styles.featureIconHover]}>
                           {item.icon}
                         </TextBlock>
                       </View>
-                      <TextBlock style={[styles.featureText, hovered && styles.featureTextHover]}>
+                      <TextBlock style={[styles.featureText, isHovered && styles.featureTextHover]}>
                         {item.label}
                       </TextBlock>
-                      <TextBlock style={[styles.chevronIcon, hovered && styles.chevronIconHover]}>
+                      <TextBlock style={[styles.chevronIcon, isHovered && styles.chevronIconHover]}>
                         ›
                       </TextBlock>
-                    </>
-                  )}
-                </Pressable>
-              ))}
+                    </View>
+                  </Pressable>
+                );
+              })}
             </View>
 
             <TextBlock style={styles.footerCode}>GYM-PP-2026 · Ponte Piñuo</TextBlock>
@@ -398,6 +401,15 @@ const styles = StyleSheet.create({
     maxWidth: 512,
   },
   featureRow: {
+    borderRadius: 8,
+    ...Platform.select({
+      web: {
+        cursor: 'default',
+      },
+      default: {},
+    }),
+  },
+  featureRowInner: {
     minHeight: 44,
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
@@ -420,10 +432,6 @@ const styles = StyleSheet.create({
         elevation: 2,
       },
     }),
-  },
-  featureRowPressed: {
-    transform: [{ scale: 0.99 }],
-    opacity: 0.92,
   },
   featureIconTile: {
     width: 28,
