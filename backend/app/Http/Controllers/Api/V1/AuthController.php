@@ -10,33 +10,49 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
     public function login(LoginRequest $request): JsonResponse
     {
+        if ($lockoutResponse = $this->ensureIsNotRateLimited($request)) {
+            return $lockoutResponse;
+        }
+
         $credentials = $request->validated();
+        $credentials['is_active'] = true;
 
         if (! Auth::attempt($credentials)) {
+            RateLimiter::hit($this->throttleKey($request), $this->lockoutSeconds());
+
             return response()->json([
-                'message' => 'Error de validacion',
+                'message' => 'No fue posible iniciar sesion con las credenciales proporcionadas.',
                 'errors' => [
-                    'auth' => ['Las credenciales no son validas.'],
+                    'auth' => ['Verifica tus credenciales e intenta nuevamente.'],
                 ],
             ], 422);
         }
 
         /** @var User $user */
         $user = Auth::user();
+        RateLimiter::clear($this->throttleKey($request));
         $user->load('role', 'latestMembership', 'routines.days');
-        $token = $user->createToken('mobile')->plainTextToken;
+        $user->tokens()->delete();
+
+        $expiresAt = $this->tokenExpiration();
+        $token = $user
+            ->createToken($this->resolveTokenName($request), ['*'], $expiresAt)
+            ->plainTextToken;
 
         return response()->json([
-            'message' => 'Inicio de sesión correcto.',
+            'message' => 'Inicio de sesion correcto.',
             'data' => [
                 'user' => UserResource::make($user),
                 'token' => $token,
+                'expires_at' => $expiresAt?->toIso8601String(),
             ],
         ]);
     }
@@ -79,8 +95,60 @@ class AuthController extends Controller
         $request->user()?->currentAccessToken()?->delete();
 
         return response()->json([
-            'message' => 'Sesión cerrada.',
+            'message' => 'Sesion cerrada.',
             'data' => null,
         ]);
+    }
+
+    private function ensureIsNotRateLimited(LoginRequest $request): ?JsonResponse
+    {
+        $throttleKey = $this->throttleKey($request);
+
+        if (! RateLimiter::tooManyAttempts($throttleKey, $this->maxLoginAttempts())) {
+            return null;
+        }
+
+        $seconds = RateLimiter::availableIn($throttleKey);
+
+        return response()->json([
+            'message' => 'Demasiados intentos de inicio de sesion. Intenta nuevamente mas tarde.',
+            'errors' => [
+                'auth' => ['Has superado el limite de intentos. Espera antes de volver a intentar.'],
+            ],
+            'meta' => [
+                'retry_after' => $seconds,
+                'retry_after_minutes' => (int) ceil($seconds / 60),
+            ],
+        ], 429);
+    }
+
+    private function throttleKey(LoginRequest $request): string
+    {
+        return Str::transliterate(Str::lower($request->string('email')->value())).'|'.$request->ip();
+    }
+
+    private function maxLoginAttempts(): int
+    {
+        return (int) config('auth.login.max_attempts', 5);
+    }
+
+    private function lockoutSeconds(): int
+    {
+        return (int) config('auth.login.lockout_seconds', 600);
+    }
+
+    private function tokenExpiration()
+    {
+        $minutes = (int) config('sanctum.expiration', 0);
+
+        return $minutes > 0 ? now()->addMinutes($minutes) : null;
+    }
+
+    private function resolveTokenName(Request $request): string
+    {
+        $platform = Str::slug((string) $request->header('X-Client-Platform', 'client'));
+        $version = Str::slug((string) $request->header('X-Client-Version', 'unknown'));
+
+        return trim("{$platform}-{$version}", '-');
     }
 }
