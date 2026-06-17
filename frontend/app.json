@@ -40,7 +40,8 @@
         {
           "photosPermission": "Permite seleccionar una foto para actualizar tu perfil."
         }
-      ]
+      ],
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,
