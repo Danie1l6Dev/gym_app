@@ -23,6 +23,7 @@ import { useAuth, useDeleteRoutine, useRoutines } from '@/hooks';
 import { TYPOGRAPHY } from '@/theme';
 import type { Exercise } from '@/interfaces/exercise';
 import type { Routine } from '@/interfaces/routine';
+import { shadowStyle } from '@/utils';
 
 type RoutineTab = 'recommended' | 'mine';
 
@@ -119,11 +120,12 @@ function RutinaCard({
         styles.rCard,
         {
           borderColor: hovered ? 'rgba(139,92,246,0.48)' : 'rgba(139,92,246,0.14)',
-          shadowColor: hovered ? 'rgba(109,40,217,0.14)' : 'transparent',
-          shadowOpacity: 0.4,
-          shadowRadius: 28,
-          shadowOffset: { width: 0, height: 0 },
-          elevation: hovered ? 6 : 0,
+          ...shadowStyle({
+            color: hovered ? 'rgba(109,40,217,0.14)' : 'transparent',
+            opacity: 0.4,
+            radius: 28,
+            elevation: hovered ? 6 : 0,
+          }),
         },
       ]}>
       {({ hovered }) => (
@@ -246,7 +248,18 @@ function CrearRutinaModal({ visible, onClose }: { visible: boolean; onClose: () 
                 placeholderTextColor="rgba(255,255,255,0.25)"
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
-                style={[styles.modalInput, focused && { borderColor: 'rgba(139,92,246,0.85)', shadowColor: 'rgba(109,40,217,0.12)', shadowOpacity: 1, shadowRadius: 3, shadowOffset: { width: 0, height: 0 }, elevation: 3 }]}
+                style={[
+                  styles.modalInput,
+                  focused && {
+                    borderColor: 'rgba(139,92,246,0.85)',
+                    ...shadowStyle({
+                      color: 'rgba(109,40,217,0.12)',
+                      opacity: 1,
+                      radius: 3,
+                      elevation: 3,
+                    }),
+                  },
+                ]}
               />
             </View>
             <View>
@@ -488,11 +501,13 @@ export default function RoutinesScreen() {
                   styles.createBtn,
                   isCompact && styles.createBtnCompact,
                   {
-                    shadowColor: hovered ? 'rgba(109,40,217,0.52)' : 'rgba(109,40,217,0.32)',
-                    shadowOpacity: 0.5,
-                    shadowRadius: hovered ? 36 : 22,
-                    shadowOffset: { width: 0, height: hovered ? -1 : 0 },
-                    elevation: hovered ? 10 : 6,
+                    ...shadowStyle({
+                      color: hovered ? 'rgba(109,40,217,0.52)' : 'rgba(109,40,217,0.32)',
+                      opacity: 0.5,
+                      radius: hovered ? 36 : 22,
+                      offsetY: hovered ? -1 : 0,
+                      elevation: hovered ? 10 : 6,
+                    }),
                     transform: hovered && Platform.OS === 'web' ? [{ translateY: -1 }] : [],
                   },
                 ]}>
@@ -1046,11 +1061,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#5b21b6',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(139,92,246,0.5)',
-    shadowColor: 'rgba(109,40,217,0.28)',
-    shadowOpacity: 0.5,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
+    ...shadowStyle({
+      color: 'rgba(109,40,217,0.28)',
+      opacity: 0.5,
+      radius: 18,
+      elevation: 6,
+    }),
   },
   emptyBtnText: {
     color: '#fff',
@@ -1073,11 +1089,12 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(139,92,246,0.3)',
     padding: 28,
-    shadowColor: 'rgba(109,40,217,0.25)',
-    shadowOpacity: 0.5,
-    shadowRadius: 60,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 12,
+    ...shadowStyle({
+      color: 'rgba(109,40,217,0.25)',
+      opacity: 0.5,
+      radius: 60,
+      elevation: 12,
+    }),
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1181,11 +1198,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#5b21b6',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(139,92,246,0.5)',
-    shadowColor: 'rgba(109,40,217,0.3)',
-    shadowOpacity: 0.5,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
+    ...shadowStyle({
+      color: 'rgba(109,40,217,0.3)',
+      opacity: 0.5,
+      radius: 18,
+      elevation: 6,
+    }),
   },
   modalCreateText: {
     color: '#fff',
@@ -1201,11 +1219,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(127,29,29,0.9)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(248,113,113,0.5)',
-    shadowColor: 'rgba(248,113,113,0.24)',
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
+    ...shadowStyle({
+      color: 'rgba(248,113,113,0.24)',
+      opacity: 0.45,
+      radius: 18,
+      elevation: 6,
+    }),
   },
   modalDeleteText: {
     color: '#fff',

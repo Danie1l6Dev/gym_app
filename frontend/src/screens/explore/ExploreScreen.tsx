@@ -7,6 +7,7 @@ import { AppBackground } from '@/components/AppBackground';
 import { TopBar } from '@/components/TopBar';
 import { ROUTES } from '@/constants';
 import { TYPOGRAPHY } from '@/theme';
+import { shadowStyle } from '@/utils';
 
 const SECTIONS = [
   {
@@ -69,13 +70,12 @@ export default function ExploreScreen() {
                     borderColor: hovered
                       ? 'rgba(139,92,246,0.6)'
                       : 'rgba(139,92,246,0.3)',
-                    shadowColor: hovered
-                      ? 'rgba(139,92,246,0.3)'
-                      : 'transparent',
-                    shadowOpacity: 0.4,
-                    shadowRadius: 20,
-                    shadowOffset: { width: 0, height: 0 },
-                    elevation: hovered ? 6 : 0,
+                    ...shadowStyle({
+                      color: hovered ? 'rgba(139,92,246,0.3)' : 'transparent',
+                      opacity: 0.4,
+                      radius: 20,
+                      elevation: hovered ? 6 : 0,
+                    }),
                   },
                 ]}>
                 {({ hovered }) => (

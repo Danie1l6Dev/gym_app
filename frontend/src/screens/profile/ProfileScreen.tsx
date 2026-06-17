@@ -22,6 +22,7 @@ import { useTheme } from '@/hooks/use-theme';
 import type { UpdateProfilePayload, User } from '@/interfaces/auth';
 import type { ApiError } from '@/services/api/client';
 import { formatShortDate } from '@/utils/dates';
+import { shadowStyle } from '@/utils';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -219,7 +220,13 @@ export default function ProfileScreen() {
               {
                 backgroundColor: theme.colors.surface,
                 borderColor: theme.colors.border,
-                shadowColor: theme.colors.shadow,
+                ...shadowStyle({
+                  color: theme.colors.shadow,
+                  opacity: 0.18,
+                  radius: 22,
+                  offsetY: 10,
+                  elevation: 3,
+                }),
               },
             ]}>
             <View style={styles.heroTop}>
@@ -288,13 +295,19 @@ export default function ProfileScreen() {
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
               <View
                 style={[
-                  styles.formCard,
-                  {
-                    backgroundColor: theme.colors.surface,
-                    borderColor: theme.colors.border,
-                    shadowColor: theme.colors.shadow,
-                  },
-                ]}>
+                styles.formCard,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                  ...shadowStyle({
+                    color: theme.colors.shadow,
+                    opacity: 0.12,
+                    radius: 18,
+                    offsetY: 8,
+                    elevation: 2,
+                  }),
+                },
+              ]}>
                 <View style={styles.formHeader}>
                   <View>
                     <TextBlock variant="title">Editar datos básicos</TextBlock>
@@ -646,7 +659,13 @@ function InfoCard({ label, value, detail, icon, fullWidth = false }: InfoCardPro
         {
           backgroundColor: theme.colors.surface,
           borderColor: theme.colors.border,
-          shadowColor: theme.colors.shadow,
+          ...shadowStyle({
+            color: theme.colors.shadow,
+            opacity: 0.08,
+            radius: 14,
+            offsetY: 6,
+            elevation: 1,
+          }),
         },
       ]}>
       <View style={styles.itemTop}>
@@ -847,10 +866,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: 18,
     gap: 18,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 22,
-    elevation: 3,
   },
   heroTop: {
     flexDirection: 'row',
@@ -930,10 +945,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: 18,
     gap: 16,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 2,
   },
   formHeader: {
     flexDirection: 'row',
@@ -1082,10 +1093,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: 16,
     gap: 10,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 1,
   },
   fullWidth: {
     flexBasis: '100%',

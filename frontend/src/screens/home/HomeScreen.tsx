@@ -1,16 +1,29 @@
-import type { ComponentProps } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useEffect, useRef, useState, type ComponentProps } from 'react';
+import {
+  Alert,
+  Animated,
+  Easing,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
 import { AppBackground } from '@/components/AppBackground';
 import { TopBar } from '@/components/TopBar';
-import { useExercises, useMuscles, useRoutines } from '@/hooks';
-import { useAuth } from '@/hooks/use-auth';
 import { ROUTES } from '@/constants';
-import { TYPOGRAPHY } from '@/theme';
+import { useAuth } from '@/hooks/use-auth';
+import { useExercises, useMuscles, useRoutines } from '@/hooks';
 import type { Routine } from '@/interfaces/routine';
+import { TYPOGRAPHY } from '@/theme';
+import { shadowStyle } from '@/utils';
 
 type MaterialIconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -20,12 +33,69 @@ const ICONS = {
   Dumbbell: 'dumbbell',
   TrendingUp: 'trending-up',
   Flame: 'fire',
-  Bell: 'bell-outline',
-  Settings: 'cog-outline',
-  ChevronRight: 'chevron-right',
 } as const;
 
 const WEEKDAY_SLUGS = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'] as const;
+
+const PROMO_SLIDES = [
+  {
+    image: require('@/assets/images/dashboard-ads/ad-6.jpeg'),
+    eyebrow: 'Anuncio destacado',
+    title: 'Fitness is not a one-time thing. It is a lifestyle.',
+    description:
+      'Campanas visuales de alto impacto para mover membresias, clases especiales y retos semanales.',
+    chip: 'Brand campaign',
+  },
+  {
+    image: require('@/assets/images/dashboard-ads/ad-7.jpeg'),
+    eyebrow: 'Promo de temporada',
+    title: 'Stay fit, not still.',
+    description:
+      'Ideal para anunciar descuentos anuales, bonos por inscripcion y activaciones de temporada.',
+    chip: '20% off annual',
+  },
+  {
+    image: require('@/assets/images/dashboard-ads/ad-8.jpeg'),
+    eyebrow: 'Nueva membresia',
+    title: 'Get in shape. Become stronger.',
+    description:
+      'Usa este espacio para empujar nuevas membresias, clases premium o beneficios del mes.',
+    chip: 'Join our gym',
+  },
+  {
+    image: require('@/assets/images/dashboard-ads/ad-9.jpeg'),
+    eyebrow: 'Comunidad activa',
+    title: 'Historias reales para motivar asistencia y permanencia.',
+    description:
+      'Perfecto para destacar transformaciones, rutinas recomendadas y logros de tus usuarios.',
+    chip: 'Fitness stories',
+  },
+  {
+    image: require('@/assets/images/dashboard-ads/ad-10.jpeg'),
+    eyebrow: 'Entrena pro',
+    title: 'Visuales potentes para retos, clases funcionales y programas elite.',
+    description:
+      'Convierte el dashboard en una vitrina viva para tus anuncios internos mas importantes.',
+    chip: 'Cinematic tones',
+  },
+] as const;
+
+const INTRO_SLIDE = {
+  type: 'intro' as const,
+  eyebrow: 'Resumen diario',
+  title: 'Entrena con datos reales del sistema',
+  description:
+    'Este panel usa los servicios actuales de rutinas, musculos y ejercicios para mostrar el estado disponible en la plataforma.',
+  chip: 'System live data',
+};
+
+const HERO_SLIDES = [
+  INTRO_SLIDE,
+  ...PROMO_SLIDES.map((slide) => ({
+    type: 'promo' as const,
+    ...slide,
+  })),
+] as const;
 
 function getTodaySlug(): string {
   return WEEKDAY_SLUGS[new Date().getDay()];
@@ -95,11 +165,12 @@ function TodayRoutineBanner({
         styles.todayBanner,
         {
           borderColor: hovered ? 'rgba(167,139,250,0.56)' : 'rgba(167,139,250,0.28)',
-          shadowColor: hovered ? 'rgba(109,40,217,0.18)' : 'rgba(109,40,217,0.08)',
-          shadowOpacity: hovered ? 0.4 : 0.22,
-          shadowRadius: hovered ? 32 : 18,
-          shadowOffset: { width: 0, height: 0 },
-          elevation: hovered ? 8 : 0,
+          ...shadowStyle({
+            color: hovered ? 'rgba(109,40,217,0.18)' : 'rgba(109,40,217,0.08)',
+            opacity: hovered ? 0.4 : 0.22,
+            radius: hovered ? 32 : 18,
+            elevation: hovered ? 8 : 0,
+          }),
         },
       ]}>
       <View style={styles.todayBannerGlow} />
@@ -130,10 +201,20 @@ function TodayRoutineBanner({
 }
 
 function StatCard({
-  value, label, sub, icon, accent, glow, compact,
+  value,
+  label,
+  sub,
+  icon,
+  accent,
+  glow,
+  compact,
 }: {
-  value: number; label: string; sub: string;
-  icon: MaterialIconName; accent: string; glow: string;
+  value: number;
+  label: string;
+  sub: string;
+  icon: MaterialIconName;
+  accent: string;
+  glow: string;
   compact?: boolean;
 }) {
   return (
@@ -143,11 +224,12 @@ function StatCard({
         compact && styles.statCardCompact,
         {
           borderColor: hovered ? 'rgba(139,92,246,0.5)' : 'rgba(139,92,246,0.14)',
-          shadowColor: hovered ? glow : 'transparent',
-          shadowOpacity: 0.4,
-          shadowRadius: 32,
-          shadowOffset: { width: 0, height: 0 },
-          elevation: hovered ? 8 : 0,
+          ...shadowStyle({
+            color: hovered ? glow : 'transparent',
+            opacity: 0.4,
+            radius: 32,
+            elevation: hovered ? 8 : 0,
+          }),
         },
       ]}>
       {({ hovered }) => (
@@ -158,9 +240,13 @@ function StatCard({
           <View style={[styles.statIconWrap, { backgroundColor: glow, borderColor: `${accent}30` }]}>
             <MaterialCommunityIcons name={icon} size={16} color={accent} />
           </View>
-          <Text style={[styles.statValue, compact && styles.statValueCompact, { color: '#fff' }]}>{value}</Text>
-          <Text style={[styles.statLabel, { color: accent }]} numberOfLines={1}>{label}</Text>
-          <Text style={[styles.statSub, { color: 'rgba(255,255,255,0.28)' }]} numberOfLines={2}>{sub}</Text>
+          <Text style={[styles.statValue, compact && styles.statValueCompact]}>{value}</Text>
+          <Text style={[styles.statLabel, { color: accent }]} numberOfLines={1}>
+            {label}
+          </Text>
+          <Text style={styles.statSub} numberOfLines={2}>
+            {sub}
+          </Text>
         </>
       )}
     </Pressable>
@@ -168,9 +254,15 @@ function StatCard({
 }
 
 function QuickCard({
-  label, hint, icon, onPress,
+  label,
+  hint,
+  icon,
+  onPress,
 }: {
-  label: string; hint: string; icon: MaterialIconName; onPress: () => void;
+  label: string;
+  hint: string;
+  icon: MaterialIconName;
+  onPress: () => void;
 }) {
   return (
     <Pressable
@@ -179,11 +271,12 @@ function QuickCard({
         styles.quickCard,
         {
           borderColor: hovered ? 'rgba(139,92,246,0.42)' : 'rgba(139,92,246,0.12)',
-          shadowColor: hovered ? 'rgba(109,40,217,0.12)' : 'transparent',
-          shadowOpacity: 0.4,
-          shadowRadius: 20,
-          shadowOffset: { width: 0, height: 0 },
-          elevation: hovered ? 4 : 0,
+          ...shadowStyle({
+            color: hovered ? 'rgba(109,40,217,0.12)' : 'transparent',
+            opacity: 0.4,
+            radius: 20,
+            elevation: hovered ? 4 : 0,
+          }),
         },
       ]}>
       {({ hovered }) => (
@@ -204,6 +297,155 @@ function QuickCard({
   );
 }
 
+function PromoCarousel({ compact }: { compact: boolean }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [incomingIndex, setIncomingIndex] = useState<number | null>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const currentTranslateX = useRef(new Animated.Value(0)).current;
+  const incomingTranslateX = useRef(new Animated.Value(0)).current;
+  const isTransitioningRef = useRef(false);
+
+  const activeSlide = HERO_SLIDES[activeIndex];
+  const incomingSlide = incomingIndex === null ? null : HERO_SLIDES[incomingIndex];
+
+  function renderSlide(
+    slide: (typeof HERO_SLIDES)[number],
+    slideIndex: number,
+    animatedValue?: Animated.Value
+  ) {
+    const isIntro = slide.type === 'intro';
+    const isActive = slideIndex === activeIndex && incomingIndex === null;
+
+    return (
+      <Animated.View
+        style={[
+          styles.slideLayer,
+          { pointerEvents: isActive ? 'auto' : 'none' },
+          animatedValue ? { transform: [{ translateX: animatedValue }] } : null,
+        ]}>
+        {isIntro ? (
+          <>
+            <View style={styles.heroGlow} />
+            <View style={styles.heroDumbbell}>
+              <MaterialCommunityIcons name="dumbbell" size={120} color="#a78bfa" />
+            </View>
+            <View style={[styles.heroIntroContent, compact && styles.heroIntroContentCompact]}>
+              <Text style={styles.heroEyebrow}>{slide.eyebrow}</Text>
+              <Text style={[styles.heroTitle, compact && styles.heroTitleCompact]}>{slide.title}</Text>
+              <Text style={[styles.heroDesc, compact && styles.heroDescCompact]}>{slide.description}</Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <Image source={slide.image} style={styles.carouselImage} resizeMode="cover" />
+            <View style={styles.carouselImageShade} />
+            <View style={styles.carouselImageVignette} />
+            <View style={styles.carouselGrid} />
+            <View style={styles.carouselAccentOrb} />
+            <View style={[styles.carouselContent, compact && styles.carouselContentCompact]}>
+              <View style={styles.carouselCopy}>
+                <Text style={styles.heroEyebrow}>{slide.eyebrow}</Text>
+                <Text style={[styles.heroTitle, compact && styles.heroTitleCompact]}>{slide.title}</Text>
+                <Text style={[styles.heroDesc, compact && styles.heroDescCompact]}>{slide.description}</Text>
+              </View>
+
+              <View style={[styles.carouselFooter, compact && styles.carouselFooterCompact]}>
+                <View style={styles.carouselMeta}>
+                  <View style={styles.carouselChip}>
+                    <Text style={styles.carouselChipText}>{slide.chip}</Text>
+                  </View>
+                  <Text style={styles.carouselCounter}>
+                    {String(slideIndex + 1).padStart(2, '0')} / {String(HERO_SLIDES.length).padStart(2, '0')}
+                  </Text>
+                </View>
+
+                <View style={styles.carouselDots}>
+                  {HERO_SLIDES.map((item, index) => {
+                    const active = index === activeIndex && incomingIndex === null;
+
+                    return (
+                      <Pressable
+                        key={item.title}
+                        onPress={() => goToSlide(index)}
+                        style={({ hovered }) => [
+                          styles.carouselDot,
+                          active && styles.carouselDotActive,
+                          hovered && !active && styles.carouselDotHover,
+                        ]}
+                      />
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          </>
+        )}
+      </Animated.View>
+    );
+  }
+
+  function goToSlide(nextIndex: number) {
+    if (isTransitioningRef.current) {
+      return;
+    }
+
+    const total = HERO_SLIDES.length;
+    const normalizedIndex = (nextIndex + total) % total;
+
+    if (normalizedIndex === activeIndex) {
+      return;
+    }
+
+    if (!containerWidth) {
+      setActiveIndex(normalizedIndex);
+      return;
+    }
+
+    isTransitioningRef.current = true;
+    setIncomingIndex(normalizedIndex);
+    currentTranslateX.setValue(0);
+    incomingTranslateX.setValue(containerWidth);
+
+    Animated.parallel([
+      Animated.timing(currentTranslateX, {
+        toValue: -containerWidth,
+        duration: 420,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(incomingTranslateX, {
+        toValue: 0,
+        duration: 420,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    ]).start(() => {
+      setActiveIndex(normalizedIndex);
+      setIncomingIndex(null);
+      currentTranslateX.setValue(0);
+      incomingTranslateX.setValue(0);
+      isTransitioningRef.current = false;
+    });
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      goToSlide(activeIndex + 1);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [activeIndex, containerWidth]);
+
+  return (
+    <View
+      onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}
+      style={[styles.heroCard, styles.carouselCard, compact && styles.carouselCardCompact]}>
+      {renderSlide(activeSlide, activeIndex, incomingIndex === null ? undefined : currentTranslateX)}
+      {incomingSlide ? renderSlide(incomingSlide, incomingIndex, incomingTranslateX) : null}
+    </View>
+  );
+}
+
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const { user } = useAuth();
@@ -213,6 +455,7 @@ export default function HomeScreen() {
   const muscleCount = muscles.meta?.total ?? muscles.items.length;
   const exerciseCount = exercises.meta?.total ?? exercises.items.length;
   const isCompactLayout = width < 640;
+  const isHeroCompact = width < 860;
   const todaySlug = getTodaySlug();
   const todayLabel = getDayDisplayName(todaySlug);
   const personalRoutines = routines.items.filter(
@@ -226,14 +469,14 @@ export default function HomeScreen() {
     {
       value: routines.items.length,
       label: 'Rutinas',
-      sub: routines.error ?? 'disponibles para tu sesión',
+      sub: routines.error ?? 'disponibles para tu sesion',
       icon: ICONS.Repeat2,
       accent: '#8b5cf6',
       glow: 'rgba(109,40,217,0.18)',
     },
     {
       value: muscleCount,
-      label: 'Músculos',
+      label: 'Musculos',
       sub: muscles.error ?? 'grupos musculares registrados',
       icon: ICONS.Target,
       accent: '#a78bfa',
@@ -242,7 +485,7 @@ export default function HomeScreen() {
     {
       value: exerciseCount,
       label: 'Ejercicios',
-      sub: exercises.error ?? 'ejercicios del catálogo local',
+      sub: exercises.error ?? 'ejercicios del catalogo local',
       icon: ICONS.Dumbbell,
       accent: '#c4b5fd',
       glow: 'rgba(167,139,250,0.14)',
@@ -259,13 +502,13 @@ export default function HomeScreen() {
     {
       label: 'Ver progreso semanal',
       icon: ICONS.TrendingUp,
-      hint: 'Próximamente',
-      onPress: () => Alert.alert('Próximamente', 'Esta funcionalidad estará disponible pronto.'),
+      hint: 'Proximamente',
+      onPress: () => Alert.alert('Proximamente', 'Esta funcionalidad estara disponible pronto.'),
     },
     {
       label: 'Explorar ejercicios',
       icon: ICONS.Flame,
-      hint: 'Catálogo completo',
+      hint: 'Catalogo completo',
       onPress: () => router.push(ROUTES.app.exercises),
     },
   ];
@@ -279,34 +522,20 @@ export default function HomeScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        {/* Page header */}
         <View style={styles.pageHeader}>
-          <Text style={styles.eyebrow}>GYM PONTE PIÑUO</Text>
+          <Text style={styles.eyebrow}>GYM PONTE PINUO</Text>
           <Text style={styles.pageTitle}>Inicio</Text>
           <Text style={styles.greeting}>
             Hola{user?.name ? `, ${user.name}` : ''}. Resumen actualizado desde el sistema.
           </Text>
         </View>
 
-        {/* Resumen Diario banner */}
-        <View style={styles.heroCard}>
-          <View style={styles.heroGlow} />
-          <View style={styles.heroDumbbell}>
-            <MaterialCommunityIcons name="dumbbell" size={120} color="#a78bfa" />
-          </View>
-          <Text style={styles.heroEyebrow}>Resumen diario</Text>
-          <Text style={styles.heroTitle}>Entrena con datos reales del sistema</Text>
-          <Text style={styles.heroDesc}>
-            Este panel usa los servicios actuales de rutinas, músculos y ejercicios para mostrar el
-            estado disponible en la plataforma.
-          </Text>
-        </View>
+        <PromoCarousel compact={isHeroCompact} />
 
-        {/* Stat cards */}
         <View style={[styles.statsRow, isCompactLayout && styles.statsRowCompact]}>
-          {stats.map((s) => (
-            <View key={s.label} style={[styles.statCol, isCompactLayout && styles.statColCompact]}>
-              <StatCard {...s} compact={isCompactLayout} />
+          {stats.map((stat) => (
+            <View key={stat.label} style={[styles.statCol, isCompactLayout && styles.statColCompact]}>
+              <StatCard {...stat} compact={isCompactLayout} />
             </View>
           ))}
         </View>
@@ -318,15 +547,14 @@ export default function HomeScreen() {
           personalRoutineCount={personalRoutines.length}
         />
 
-        {/* Quick actions */}
-        <Text style={styles.quickSectionLabel}>Acciones rápidas</Text>
+        <Text style={styles.quickSectionLabel}>Acciones rapidas</Text>
         <View style={styles.quickList}>
-          {quickActions.map((q) => (
-            <QuickCard key={q.label} {...q} />
+          {quickActions.map((action) => (
+            <QuickCard key={action.label} {...action} />
           ))}
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -337,7 +565,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#020203',
   },
-
   scroll: {
     flex: 1,
   },
@@ -367,10 +594,195 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginBottom: 8,
     lineHeight: 42,
+    fontFamily: TYPOGRAPHY.fonts.display,
   },
   greeting: {
     fontSize: 13.5,
     color: 'rgba(255,255,255,0.35)',
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  heroCard: {
+    borderRadius: 20,
+    marginBottom: 24,
+    backgroundColor: '#090910',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.22)',
+    borderLeftWidth: 3,
+    borderLeftColor: '#7c3aed',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  heroGlow: {
+    position: 'absolute',
+    right: -80,
+    top: -80,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: 'rgba(109,40,217,0.06)',
+    pointerEvents: 'none',
+  },
+  heroDumbbell: {
+    position: 'absolute',
+    right: 32,
+    top: '50%',
+    marginTop: -60,
+    opacity: 0.06,
+  },
+  heroIntroContent: {
+    paddingVertical: 32,
+    paddingHorizontal: 36,
+    gap: 12,
+  },
+  heroIntroContentCompact: {
+    paddingHorizontal: 22,
+    paddingVertical: 24,
+  },
+  carouselCard: {
+    minHeight: 290,
+    justifyContent: 'space-between',
+  },
+  carouselCardCompact: {
+    minHeight: 360,
+  },
+  slideLayer: {
+    ...StyleSheet.absoluteFill,
+  },
+  carouselImage: {
+    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
+  },
+  carouselImageShade: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(2,2,4,0.34)',
+  },
+  carouselImageVignette: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(7,5,13,0.46)',
+  },
+  carouselGrid: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    opacity: 0.18,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  carouselAccentOrb: {
+    position: 'absolute',
+    right: -70,
+    top: -58,
+    width: 230,
+    height: 230,
+    borderRadius: 115,
+    backgroundColor: 'rgba(109,40,217,0.18)',
+  },
+  carouselContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingVertical: 32,
+    paddingHorizontal: 36,
+    gap: 28,
+  },
+  carouselContentCompact: {
+    paddingHorizontal: 22,
+    paddingVertical: 24,
+    gap: 24,
+  },
+  carouselCopy: {
+    maxWidth: 590,
+    gap: 12,
+  },
+  heroEyebrow: {
+    fontSize: 9,
+    fontFamily: TYPOGRAPHY.fonts.mono,
+    letterSpacing: 2.4,
+    color: '#d8b4fe',
+    textTransform: 'uppercase',
+  },
+  heroTitle: {
+    fontSize: 30,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: -0.4,
+    lineHeight: 34,
+    fontFamily: TYPOGRAPHY.fonts.display,
+    maxWidth: 620,
+  },
+  heroTitleCompact: {
+    fontSize: 24,
+    lineHeight: 28,
+    maxWidth: '100%',
+  },
+  heroDesc: {
+    fontSize: 13.5,
+    color: 'rgba(255,255,255,0.78)',
+    lineHeight: 21,
+    maxWidth: 560,
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  heroDescCompact: {
+    maxWidth: '100%',
+  },
+  carouselFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 18,
+  },
+  carouselFooterCompact: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  carouselMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  carouselChip: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    backgroundColor: 'rgba(217,255,43,0.92)',
+  },
+  carouselChipText: {
+    color: '#050505',
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1.1,
+    fontFamily: TYPOGRAPHY.fonts.mono,
+  },
+  carouselCounter: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 11,
+    letterSpacing: 1.4,
+    fontFamily: TYPOGRAPHY.fonts.mono,
+  },
+  carouselDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  carouselDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.34)',
+  },
+  carouselDotActive: {
+    width: 32,
+    backgroundColor: '#d9ff2b',
+    borderColor: '#d9ff2b',
+  },
+  carouselDotHover: {
+    backgroundColor: 'rgba(255,255,255,0.42)',
   },
   todayBanner: {
     flexDirection: 'row',
@@ -451,58 +863,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: TYPOGRAPHY.fonts.body,
   },
-  heroCard: {
-    borderRadius: 20,
-    paddingVertical: 32,
-    paddingHorizontal: 36,
-    marginBottom: 24,
-    backgroundColor: '#090910',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(139,92,246,0.22)',
-    borderLeftWidth: 3,
-    borderLeftColor: '#7c3aed',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  heroGlow: {
-    position: 'absolute',
-    right: -80,
-    top: -80,
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    backgroundColor: 'rgba(109,40,217,0.06)',
-    pointerEvents: 'none',
-  },
-  heroDumbbell: {
-    position: 'absolute',
-    right: 32,
-    top: '50%',
-    marginTop: -60,
-    opacity: 0.06,
-  },
-  heroEyebrow: {
-    fontSize: 9,
-    fontFamily: TYPOGRAPHY.fonts.mono,
-    letterSpacing: 2.4,
-    color: '#8b5cf6',
-    textTransform: 'uppercase',
-    marginBottom: 12,
-  },
-  heroTitle: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#fff',
-    letterSpacing: -0.3,
-    marginBottom: 12,
-    maxWidth: 520,
-  },
-  heroDesc: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.35)',
-    lineHeight: 21,
-    maxWidth: 560,
-  },
   statsRow: {
     flexDirection: 'row',
     gap: 16,
@@ -565,6 +925,7 @@ const styles = StyleSheet.create({
     lineHeight: 44,
     marginBottom: 10,
     letterSpacing: -0.5,
+    color: '#fff',
     fontFamily: TYPOGRAPHY.fonts.mono,
   },
   statValueCompact: {
@@ -576,9 +937,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 4,
+    fontFamily: TYPOGRAPHY.fonts.body,
   },
   statSub: {
     fontSize: 12,
+    color: 'rgba(255,255,255,0.28)',
+    fontFamily: TYPOGRAPHY.fonts.body,
   },
   quickSectionLabel: {
     fontSize: 11,
@@ -618,10 +982,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.82)',
+    fontFamily: TYPOGRAPHY.fonts.body,
   },
   quickHint: {
     fontSize: 11,
     color: 'rgba(255,255,255,0.28)',
     marginTop: 2,
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });

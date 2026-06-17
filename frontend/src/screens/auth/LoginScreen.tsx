@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { TextBlock } from '@/components/TextBlock';
 import { useAuth } from '@/hooks/use-auth';
 import { TYPOGRAPHY } from '@/theme';
+import { shadowStyle } from '@/utils';
 
 const FEATURE_ITEMS = [
   { icon: '✓', label: 'Control de acceso al gym' },
@@ -683,16 +684,10 @@ const styles = StyleSheet.create({
   inputFocused: {
     borderColor: '#A78BFA',
     backgroundColor: '#030106',
-    ...Platform.select({
-      web: {
-        boxShadow: '0 0 0 3px rgba(124, 58, 237, 0.14)',
-      },
-      default: {
-        shadowColor: '#7C3AED',
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 0 },
-      },
+    ...shadowStyle({
+      color: '#7C3AED',
+      opacity: 0.14,
+      radius: 3,
     }),
   },
   passwordInputWrap: {
@@ -806,29 +801,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     backgroundColor: '#7C3AED',
     marginTop: 26,
-    ...Platform.select({
-      web: {
-        boxShadow: '0 12px 30px rgba(124, 58, 237, 0.34)',
-      },
-      default: {
-        elevation: 6,
-        shadowColor: '#7C3AED',
-        shadowOpacity: 0.3,
-        shadowRadius: 18,
-        shadowOffset: { width: 0, height: 10 },
-      },
+    ...shadowStyle({
+      color: '#7C3AED',
+      opacity: 0.3,
+      radius: 18,
+      offsetY: 10,
+      elevation: 6,
     }),
   },
   primaryButtonHover: {
     backgroundColor: '#8B5CF6',
     transform: [{ translateY: -1 }],
-    ...Platform.select({
-      web: {
-        boxShadow: '0 18px 38px rgba(139, 92, 246, 0.42)',
-      },
-      default: {
-        elevation: 8,
-      },
+    ...shadowStyle({
+      color: '#8B5CF6',
+      opacity: 0.42,
+      radius: 38,
+      offsetY: 18,
+      elevation: 8,
     }),
   },
   buttonLabel: {

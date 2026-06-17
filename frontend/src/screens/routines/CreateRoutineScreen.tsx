@@ -29,6 +29,7 @@ import type { Exercise } from '@/interfaces/exercise';
 import type { RoutineInputExercise } from '@/interfaces/routine';
 import { TYPOGRAPHY } from '@/theme';
 import { getExerciseDescription, getExerciseDisplayName, getMuscleDisplayName, getMuscleSubtext } from '@/utils/fitness';
+import { shadowStyle } from '@/utils';
 
 type SelectedExercise = {
   exercise: Exercise;
@@ -195,11 +196,12 @@ function ExerciseSelectionCard({
         styles.exerciseCard,
         {
           borderColor: selected ? 'rgba(139,92,246,0.58)' : 'rgba(139,92,246,0.14)',
-          shadowColor: selected ? 'rgba(109,40,217,0.22)' : 'transparent',
-          shadowOpacity: selected ? 1 : 0,
-          shadowRadius: selected ? 24 : 0,
-          shadowOffset: { width: 0, height: 0 },
-          elevation: selected ? 5 : 0,
+          ...shadowStyle({
+            color: selected ? 'rgba(109,40,217,0.22)' : 'transparent',
+            opacity: selected ? 1 : 0,
+            radius: selected ? 24 : 0,
+            elevation: selected ? 5 : 0,
+          }),
         },
         pressed && styles.pressed,
       ]}>
@@ -1381,11 +1383,12 @@ const styles = StyleSheet.create({
   },
   inputMissing: {
     borderColor: 'rgba(248,113,113,0.85)',
-    shadowColor: 'rgba(248,113,113,0.22)',
-    shadowOpacity: 1,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 4,
+    ...shadowStyle({
+      color: 'rgba(248,113,113,0.22)',
+      opacity: 1,
+      radius: 14,
+      elevation: 4,
+    }),
   },
   fieldErrorText: {
     color: '#f87171',
@@ -1627,11 +1630,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#090910',
     padding: 18,
     gap: 14,
-    shadowColor: 'rgba(109,40,217,0.26)',
-    shadowOpacity: 0.5,
-    shadowRadius: 44,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 10,
+    ...shadowStyle({
+      color: 'rgba(109,40,217,0.26)',
+      opacity: 0.5,
+      radius: 44,
+      elevation: 10,
+    }),
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1653,11 +1657,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#5b21b6',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(139,92,246,0.5)',
-    shadowColor: 'rgba(109,40,217,0.3)',
-    shadowOpacity: 0.5,
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 18,
-    elevation: 6,
+    ...shadowStyle({
+      color: 'rgba(109,40,217,0.3)',
+      opacity: 0.5,
+      radius: 18,
+      elevation: 6,
+    }),
   },
   muscleButtonFull: {
     width: '100%',
@@ -1675,11 +1680,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#5b21b6',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(139,92,246,0.5)',
-    shadowColor: 'rgba(109,40,217,0.34)',
-    shadowOpacity: 0.5,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 7,
+    ...shadowStyle({
+      color: 'rgba(109,40,217,0.34)',
+      opacity: 0.5,
+      radius: 22,
+      elevation: 7,
+    }),
   },
   submitLabel: {
     color: '#ffffff',
