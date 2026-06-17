@@ -20,7 +20,8 @@ import { AppBackground } from '@/components/AppBackground';
 import { TopBar } from '@/components/TopBar';
 import { ROUTES } from '@/constants';
 import { useAuth } from '@/hooks/use-auth';
-import { useExercises, useMuscles, useRoutines } from '@/hooks';
+import { useExercises, useMuscles, useRoutines, useWeeklyProgress } from '@/hooks';
+import type { WeeklyProgress, WeeklyProgressDay } from '@/interfaces/weekly-progress';
 import type { Routine } from '@/interfaces/routine';
 import { TYPOGRAPHY } from '@/theme';
 import { shadowStyle } from '@/utils';
@@ -297,6 +298,111 @@ function QuickCard({
   );
 }
 
+function WeeklyProgressPanel({
+  progress,
+  loading,
+  updating,
+  error,
+  onToggleToday,
+}: {
+  progress: WeeklyProgress | null;
+  loading: boolean;
+  updating: boolean;
+  error: string | null;
+  onToggleToday: (day: WeeklyProgressDay) => void;
+}) {
+  const today = progress?.days.find((day) => day.is_today) ?? null;
+  const nextPending = progress?.next_pending_day ?? null;
+  const completedLabel = progress
+    ? `${progress.completed_target_days}/${progress.target_days} dias objetivo`
+    : 'Cargando progreso';
+  const guidance = progress?.target_days
+    ? nextPending
+      ? `Siguiente pendiente: ${nextPending.label}`
+      : 'Todas las rutinas programadas estan listas.'
+    : 'Asocia rutinas a dias para activar metas semanales.';
+
+  return (
+    <View style={styles.progressCard}>
+      <View style={styles.progressHeader}>
+        <View style={styles.progressTitleWrap}>
+          <Text style={styles.progressEyebrow}>Progreso semanal</Text>
+          <Text style={styles.progressTitle}>
+            {loading && !progress ? 'Calculando tu semana' : progress?.status_label ?? 'Sin datos'}
+          </Text>
+          <Text style={styles.progressHint}>{error ?? guidance}</Text>
+        </View>
+        <View style={styles.progressRing}>
+          <Text style={styles.progressPercent}>{progress?.percentage ?? 0}%</Text>
+          <Text style={styles.progressMini}>{completedLabel}</Text>
+        </View>
+      </View>
+
+      <View style={styles.progressBarTrack}>
+        <View style={[styles.progressBarFill, { width: `${progress?.percentage ?? 0}%` }]} />
+      </View>
+
+      <View style={styles.weekGrid}>
+        {(progress?.days ?? []).map((day) => {
+          const active = day.completed;
+          const scheduled = day.is_scheduled;
+
+          return (
+            <Pressable
+              key={day.date}
+              onPress={() => day.is_today ? onToggleToday(day) : undefined}
+              disabled={!day.is_today || updating}
+              style={({ hovered }) => [
+                styles.weekDay,
+                day.is_today && styles.weekDayToday,
+                active && styles.weekDayDone,
+                !scheduled && styles.weekDayRest,
+                hovered && day.is_today && !updating && styles.weekDayHover,
+              ]}>
+              <Text style={[styles.weekDayLabel, active && styles.weekDayLabelDone]}>
+                {day.label.slice(0, 3)}
+              </Text>
+              <MaterialCommunityIcons
+                name={active ? 'check-circle' : scheduled ? 'calendar-clock' : 'minus-circle-outline'}
+                size={16}
+                color={active ? '#d9ff2b' : scheduled ? '#a78bfa' : 'rgba(255,255,255,0.22)'}
+              />
+              <Text style={styles.weekDayRoutine} numberOfLines={2}>
+                {scheduled ? day.routines.map((routine) => routine.name).join(', ') : 'Descanso'}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {today ? (
+        <Pressable
+          onPress={() => onToggleToday(today)}
+          disabled={updating}
+          style={({ hovered }) => [
+            styles.progressAction,
+            today.completed && styles.progressActionDone,
+            hovered && !updating && styles.progressActionHover,
+            updating && styles.progressActionDisabled,
+          ]}>
+          <MaterialCommunityIcons
+            name={today.completed ? 'check' : 'plus'}
+            size={15}
+            color={today.completed ? '#050505' : '#fff'}
+          />
+          <Text style={[styles.progressActionText, today.completed && styles.progressActionTextDone]}>
+            {updating
+              ? 'Actualizando...'
+              : today.completed
+                ? 'Quitar marca de hoy'
+                : 'Marcar entrenamiento de hoy'}
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 function PromoCarousel({ compact }: { compact: boolean }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [incomingIndex, setIncomingIndex] = useState<number | null>(null);
@@ -441,7 +547,7 @@ function PromoCarousel({ compact }: { compact: boolean }) {
       onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}
       style={[styles.heroCard, styles.carouselCard, compact && styles.carouselCardCompact]}>
       {renderSlide(activeSlide, activeIndex, incomingIndex === null ? undefined : currentTranslateX)}
-      {incomingSlide ? renderSlide(incomingSlide, incomingIndex, incomingTranslateX) : null}
+      {incomingSlide ? renderSlide(incomingSlide, incomingIndex ?? activeIndex, incomingTranslateX) : null}
     </View>
   );
 }
@@ -452,6 +558,7 @@ export default function HomeScreen() {
   const routines = useRoutines();
   const muscles = useMuscles();
   const exercises = useExercises();
+  const weeklyProgress = useWeeklyProgress();
   const muscleCount = muscles.meta?.total ?? muscles.items.length;
   const exerciseCount = exercises.meta?.total ?? exercises.items.length;
   const isCompactLayout = width < 640;
@@ -502,8 +609,18 @@ export default function HomeScreen() {
     {
       label: 'Ver progreso semanal',
       icon: ICONS.TrendingUp,
-      hint: 'Proximamente',
-      onPress: () => Alert.alert('Proximamente', 'Esta funcionalidad estara disponible pronto.'),
+      hint: weeklyProgress.item ? `${weeklyProgress.item.percentage}% completado` : 'Resumen de esta semana',
+      onPress: () => {
+        if (weeklyProgress.item?.next_pending_day) {
+          Alert.alert(
+            'Progreso semanal',
+            `Siguiente pendiente: ${weeklyProgress.item.next_pending_day.label}.`
+          );
+          return;
+        }
+
+        Alert.alert('Progreso semanal', weeklyProgress.item?.status_label ?? 'Cargando progreso semanal.');
+      },
     },
     {
       label: 'Explorar ejercicios',
@@ -545,6 +662,19 @@ export default function HomeScreen() {
           todayLabel={todayLabel}
           todaysRoutines={todaysRoutines}
           personalRoutineCount={personalRoutines.length}
+        />
+
+        <WeeklyProgressPanel
+          progress={weeklyProgress.item}
+          loading={weeklyProgress.loading}
+          updating={weeklyProgress.updating}
+          error={weeklyProgress.error}
+          onToggleToday={(day) => {
+            void weeklyProgress.submit({
+              date: day.date,
+              completed: !day.completed,
+            });
+          }}
         />
 
         <Text style={styles.quickSectionLabel}>Acciones rapidas</Text>
@@ -862,6 +992,162 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  progressCard: {
+    borderRadius: 18,
+    padding: 22,
+    marginBottom: 28,
+    backgroundColor: '#090910',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.16)',
+    borderLeftWidth: 3,
+    borderLeftColor: '#d9ff2b',
+    gap: 16,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 18,
+  },
+  progressTitleWrap: {
+    flex: 1,
+    minWidth: 0,
+    gap: 5,
+  },
+  progressEyebrow: {
+    fontSize: 9,
+    fontFamily: TYPOGRAPHY.fonts.mono,
+    letterSpacing: 1.8,
+    color: '#d9ff2b',
+    textTransform: 'uppercase',
+  },
+  progressTitle: {
+    color: '#fff',
+    fontSize: 19,
+    fontWeight: '700',
+    lineHeight: 24,
+    fontFamily: TYPOGRAPHY.fonts.display,
+  },
+  progressHint: {
+    color: 'rgba(255,255,255,0.42)',
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  progressRing: {
+    width: 112,
+    minHeight: 72,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(217,255,43,0.08)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(217,255,43,0.28)',
+    paddingHorizontal: 10,
+  },
+  progressPercent: {
+    color: '#d9ff2b',
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '800',
+    fontFamily: TYPOGRAPHY.fonts.mono,
+  },
+  progressMini: {
+    color: 'rgba(255,255,255,0.42)',
+    fontSize: 10,
+    textAlign: 'center',
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  progressBarTrack: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    minWidth: 2,
+    borderRadius: 999,
+    backgroundColor: '#d9ff2b',
+  },
+  weekGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  weekDay: {
+    flexGrow: 1,
+    flexBasis: 118,
+    minWidth: 112,
+    minHeight: 94,
+    borderRadius: 12,
+    padding: 10,
+    gap: 7,
+    backgroundColor: 'rgba(255,255,255,0.025)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  weekDayToday: {
+    borderColor: 'rgba(167,139,250,0.5)',
+  },
+  weekDayDone: {
+    backgroundColor: 'rgba(217,255,43,0.08)',
+    borderColor: 'rgba(217,255,43,0.32)',
+  },
+  weekDayRest: {
+    opacity: 0.72,
+  },
+  weekDayHover: {
+    backgroundColor: 'rgba(139,92,246,0.1)',
+  },
+  weekDayLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    fontFamily: TYPOGRAPHY.fonts.mono,
+  },
+  weekDayLabelDone: {
+    color: '#d9ff2b',
+  },
+  weekDayRoutine: {
+    color: 'rgba(255,255,255,0.36)',
+    fontSize: 11,
+    lineHeight: 15,
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  progressAction: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#5b21b6',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.5)',
+  },
+  progressActionDone: {
+    backgroundColor: '#d9ff2b',
+    borderColor: 'rgba(217,255,43,0.55)',
+  },
+  progressActionHover: {
+    transform: Platform.OS === 'web' ? [{ translateY: -1 }] : [],
+  },
+  progressActionDisabled: {
+    opacity: 0.66,
+  },
+  progressActionText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: TYPOGRAPHY.fonts.body,
+  },
+  progressActionTextDone: {
+    color: '#050505',
   },
   statsRow: {
     flexDirection: 'row',

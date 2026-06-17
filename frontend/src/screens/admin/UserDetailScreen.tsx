@@ -8,8 +8,9 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS } from '@/constants';
-import { useAdminUser } from '@/hooks';
+import { useAdminUser, useWeeklyProgress } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
+import type { WeeklyProgress } from '@/interfaces/weekly-progress';
 import type { Membership } from '@/interfaces/membership';
 import { formatShortDate } from '@/utils/dates';
 
@@ -95,10 +96,78 @@ function DetailGrid({ items }: { items: DetailItem[] }) {
   );
 }
 
+function WeeklyProgressSummary({
+  progress,
+  loading,
+  error,
+}: {
+  progress: WeeklyProgress | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  const theme = useTheme();
+  const days = progress?.days ?? [];
+
+  return (
+    <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+      <View style={styles.sectionHeader}>
+        <View>
+          <TextBlock variant="title">Progreso semanal</TextBlock>
+          <TextBlock variant="caption" color="muted">
+            {loading && !progress
+              ? 'Cargando asistencia de la semana'
+              : error ?? progress?.status_label ?? 'Sin registros'}
+          </TextBlock>
+        </View>
+        <View style={[styles.progressBadge, { backgroundColor: theme.colors.surfaceElevated }]}>
+          <TextBlock variant="title" color="primary">
+            {progress?.percentage ?? 0}%
+          </TextBlock>
+          <TextBlock variant="caption" color="subtle">
+            {progress ? `${progress.completed_target_days}/${progress.target_days}` : '0/0'}
+          </TextBlock>
+        </View>
+      </View>
+
+      <View style={[styles.adminProgressTrack, { backgroundColor: theme.colors.surfaceElevated }]}>
+        <View style={[styles.adminProgressFill, { width: `${progress?.percentage ?? 0}%` }]} />
+      </View>
+
+      <View style={styles.adminWeekList}>
+        {days.map((day) => (
+          <View
+            key={day.date}
+            style={[
+              styles.adminWeekDay,
+              { backgroundColor: theme.colors.surfaceElevated },
+              day.completed && styles.adminWeekDayDone,
+            ]}
+          >
+            <View style={styles.adminWeekDayTop}>
+              <TextBlock variant="caption" color={day.completed ? 'primary' : 'muted'}>
+                {day.label.slice(0, 3)}
+              </TextBlock>
+              <MaterialCommunityIcons
+                name={day.completed ? 'check-circle' : day.is_scheduled ? 'calendar-clock' : 'minus-circle-outline'}
+                size={16}
+                color={day.completed ? theme.colors.primary : theme.colors.textSubtle}
+              />
+            </View>
+            <TextBlock variant="caption" color="subtle" numberOfLines={2}>
+              {day.is_scheduled ? day.routines.map((routine) => routine.name).join(', ') : 'Descanso'}
+            </TextBlock>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export default function UserDetailScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<UserParams>();
   const { item, loading, error, retry } = useAdminUser(id);
+  const weeklyProgress = useWeeklyProgress({ admin: true, userId: id });
 
   if (loading && !item) {
     return (
@@ -183,6 +252,12 @@ export default function UserDetailScreen() {
           <DetailGrid items={membershipItems} />
         </View>
 
+        <WeeklyProgressSummary
+          progress={weeklyProgress.item}
+          loading={weeklyProgress.loading}
+          error={weeklyProgress.error}
+        />
+
         <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
           <TextBlock variant="title">Historial de membresias</TextBlock>
           {memberships.length > 0 ? (
@@ -265,5 +340,54 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  progressBadge: {
+    minWidth: 92,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  adminProgressTrack: {
+    height: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  adminProgressFill: {
+    height: '100%',
+    minWidth: 2,
+    borderRadius: 999,
+    backgroundColor: '#7c3aed',
+  },
+  adminWeekList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  adminWeekDay: {
+    flexGrow: 1,
+    flexBasis: 128,
+    minWidth: 118,
+    minHeight: 82,
+    borderRadius: 14,
+    padding: 10,
+    gap: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'transparent',
+  },
+  adminWeekDayDone: {
+    borderColor: 'rgba(124,58,237,0.34)',
+  },
+  adminWeekDayTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
 });

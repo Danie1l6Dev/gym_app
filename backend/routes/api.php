@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ExerciseController;
 use App\Http\Controllers\Api\V1\MuscleController;
 use App\Http\Controllers\Api\V1\RoutineController;
+use App\Http\Controllers\Api\V1\WeeklyProgressController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
@@ -31,6 +32,9 @@ Route::prefix('v1')->group(function (): void {
     Route::get('exercises/{exercise}', [ExerciseController::class, 'show']);
 
     Route::middleware('auth:sanctum')->group(function (): void {
+        Route::get('weekly-progress', [WeeklyProgressController::class, 'show']);
+        Route::put('weekly-progress', [WeeklyProgressController::class, 'update']);
+
         Route::get('routines', [RoutineController::class, 'index']);
         Route::post('routines', [RoutineController::class, 'store']);
         Route::get('routines/{routine}', [RoutineController::class, 'show']);
@@ -42,6 +46,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('users', [UserController::class, 'index']);
         Route::post('users', [UserController::class, 'store']);
         Route::get('users/{user}', [UserController::class, 'show']);
+        Route::get('users/{user}/weekly-progress', [WeeklyProgressController::class, 'showForUser']);
         Route::put('users/{user}', [UserController::class, 'update']);
         Route::delete('users/{user}', [UserController::class, 'destroy']);
 

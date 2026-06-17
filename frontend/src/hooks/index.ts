@@ -10,6 +10,7 @@ export { useRoutine } from './use-routine';
 export { useCreateRoutine } from './use-create-routine';
 export { useUpdateRoutine } from './use-update-routine';
 export { useDeleteRoutine } from './use-delete-routine';
+export { useWeeklyProgress } from './use-weekly-progress';
 export { useAdminDashboard } from './use-admin-dashboard';
 export { useAdminUsers } from './use-admin-users';
 export { useAdminUser } from './use-admin-user';

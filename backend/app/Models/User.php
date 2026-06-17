@@ -65,6 +65,11 @@ class User extends Authenticatable
         return $this->hasMany(Membership::class);
     }
 
+    public function workoutCheckIns(): HasMany
+    {
+        return $this->hasMany(WorkoutCheckIn::class);
+    }
+
     public function latestMembership(): HasOne
     {
         return $this->hasOne(Membership::class)->latestOfMany('ends_at');

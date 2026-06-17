@@ -19,3 +19,9 @@ export type {
   RoutineListResponse,
   RoutinePayload,
 } from './routine';
+export type {
+  WeeklyProgress,
+  WeeklyProgressDay,
+  WeeklyProgressPayload,
+  WeeklyProgressRoutine,
+} from './weekly-progress';

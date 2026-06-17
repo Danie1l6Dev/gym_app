@@ -10,6 +10,11 @@ export {
   updateRoutine,
 } from './routines.service';
 export {
+  fetchAdminUserWeeklyProgress,
+  fetchWeeklyProgress,
+  updateWeeklyProgress,
+} from './weekly-progress.service';
+export {
   createAdminUser,
   deleteAdminUser,
   fetchAdminDashboard,

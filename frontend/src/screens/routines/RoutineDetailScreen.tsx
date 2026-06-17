@@ -10,7 +10,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS, ROUTES } from '@/constants';
-import { useRoutine } from '@/hooks';
+import { useRoutine, useWeeklyProgress } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
 import type { Exercise } from '@/interfaces/exercise';
 
@@ -19,6 +19,11 @@ type RoutineParams = {
 };
 
 const WIDE_EXERCISE_LAYOUT_BREAKPOINT = 760;
+const WEEKDAY_SLUGS = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'] as const;
+
+function getTodaySlug(): string {
+  return WEEKDAY_SLUGS[new Date().getDay()];
+}
 
 function getRoutineDaysLabel(days?: { name?: string | null; slug?: string | null }[]): string {
   if (!days || days.length === 0) {
@@ -76,6 +81,7 @@ export default function RoutineDetailScreen() {
   const { width } = useWindowDimensions();
   const { id } = useLocalSearchParams<RoutineParams>();
   const { item, loading, refreshing, error, refresh, retry } = useRoutine(id);
+  const weeklyProgress = useWeeklyProgress();
   const isWideExerciseLayout = width >= WIDE_EXERCISE_LAYOUT_BREAKPOINT;
 
   if (loading && !item) {
@@ -101,6 +107,10 @@ export default function RoutineDetailScreen() {
       </ScreenContainer>
     );
   }
+
+  const todaySlug = getTodaySlug();
+  const isRoutineForToday = (item.days ?? []).some((day) => day.slug === todaySlug);
+  const todayProgress = weeklyProgress.item?.days.find((day) => day.is_today) ?? null;
 
   return (
     <ScreenContainer scrollable={false}>
@@ -151,6 +161,57 @@ export default function RoutineDetailScreen() {
               <TextBlock variant="eyebrow" color="primary">
                 Routine detail
               </TextBlock>
+              {isRoutineForToday && todayProgress ? (
+                <View style={[styles.todayProgressBox, { backgroundColor: theme.colors.surfaceElevated }]}>
+                  <View style={styles.todayProgressCopy}>
+                    <TextBlock variant="caption" color="muted">
+                      Entrenamiento de hoy
+                    </TextBlock>
+                    <TextBlock variant="body">
+                      {todayProgress.completed
+                        ? 'Esta rutina ya cuenta en tu progreso semanal.'
+                        : 'Marca esta sesion cuando termines tu entrenamiento.'}
+                    </TextBlock>
+                  </View>
+                  <Pressable
+                    disabled={weeklyProgress.updating}
+                    onPress={() => {
+                      void weeklyProgress.submit({
+                        date: todayProgress.date,
+                        completed: !todayProgress.completed,
+                      });
+                    }}
+                    style={({ pressed }) => [
+                      styles.todayProgressButton,
+                      {
+                        backgroundColor: todayProgress.completed
+                          ? theme.colors.surface
+                          : theme.colors.primary,
+                        borderColor: todayProgress.completed
+                          ? theme.colors.border
+                          : theme.colors.primary,
+                      },
+                      pressed && styles.pressed,
+                      weeklyProgress.updating && styles.disabled,
+                    ]}>
+                    <MaterialCommunityIcons
+                      name={todayProgress.completed ? 'check-circle' : 'check'}
+                      size={16}
+                      color={todayProgress.completed ? theme.colors.primary : '#fff'}
+                    />
+                    <TextBlock
+                      variant="button"
+                      color={todayProgress.completed ? 'primary' : 'default'}
+                      style={!todayProgress.completed && styles.todayProgressButtonText}>
+                      {weeklyProgress.updating
+                        ? 'Actualizando'
+                        : todayProgress.completed
+                          ? 'Realizado'
+                          : 'Marcar realizado'}
+                    </TextBlock>
+                  </Pressable>
+                </View>
+              ) : null}
               <View style={styles.daysBox}>
                 <MaterialCommunityIcons name="calendar-week" size={18} color={theme.colors.primary} />
                 <View style={styles.daysCopy}>
@@ -358,5 +419,34 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.72,
+  },
+  disabled: {
+    opacity: 0.62,
+  },
+  todayProgressBox: {
+    borderRadius: 16,
+    padding: 12,
+    gap: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  todayProgressCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  todayProgressButton: {
+    minHeight: DIMENSIONS.touchTarget,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  todayProgressButtonText: {
+    color: '#fff',
   },
 });
