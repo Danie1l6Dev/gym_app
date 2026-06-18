@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import {
-  Alert,
   Animated,
   Easing,
   Image,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -403,6 +403,122 @@ function WeeklyProgressPanel({
   );
 }
 
+function WeeklyProgressModal({
+  visible,
+  progress,
+  updating,
+  error,
+  onClose,
+  onToggleToday,
+}: {
+  visible: boolean;
+  progress: WeeklyProgress | null;
+  updating: boolean;
+  error: string | null;
+  onClose: () => void;
+  onToggleToday: (day: WeeklyProgressDay) => void;
+}) {
+  const today = progress?.days.find((day) => day.is_today) ?? null;
+  const nextPending = progress?.next_pending_day ?? null;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.progressModalOverlay} onPress={onClose}>
+        <Pressable style={styles.progressModalCard} onPress={(event) => event.stopPropagation()}>
+          <View style={styles.progressModalHeader}>
+            <View>
+              <Text style={styles.progressEyebrow}>Progreso semanal</Text>
+              <Text style={styles.progressModalTitle}>{progress?.status_label ?? 'Sin datos'}</Text>
+              <Text style={styles.progressHint}>
+                {error ??
+                  (nextPending
+                    ? `Siguiente pendiente: ${nextPending.label}`
+                    : 'Resumen de asistencia de la semana actual.')}
+              </Text>
+            </View>
+            <Pressable onPress={onClose} style={styles.progressModalClose}>
+              <MaterialCommunityIcons name="close" size={18} color="rgba(255,255,255,0.72)" />
+            </Pressable>
+          </View>
+
+          <View style={styles.progressModalStats}>
+            <View style={styles.progressModalStat}>
+              <Text style={styles.progressModalValue}>{progress?.percentage ?? 0}%</Text>
+              <Text style={styles.progressMini}>cumplimiento</Text>
+            </View>
+            <View style={styles.progressModalStat}>
+              <Text style={styles.progressModalValue}>{progress?.completed_target_days ?? 0}</Text>
+              <Text style={styles.progressMini}>dias cumplidos</Text>
+            </View>
+            <View style={styles.progressModalStat}>
+              <Text style={styles.progressModalValue}>{progress?.target_days ?? 0}</Text>
+              <Text style={styles.progressMini}>dias objetivo</Text>
+            </View>
+          </View>
+
+          <View style={styles.progressBarTrack}>
+            <View style={[styles.progressBarFill, { width: `${progress?.percentage ?? 0}%` }]} />
+          </View>
+
+          <ScrollView
+            style={styles.progressModalDaysScroll}
+            contentContainerStyle={styles.progressModalDays}
+            showsVerticalScrollIndicator={false}>
+            {(progress?.days ?? []).map((day) => (
+              <View
+                key={day.date}
+                style={[
+                  styles.progressModalDay,
+                  day.completed && styles.progressModalDayDone,
+                  day.is_today && styles.progressModalDayToday,
+                ]}>
+                <View style={styles.progressModalDayTop}>
+                  <Text style={[styles.weekDayLabel, day.completed && styles.weekDayLabelDone]}>
+                    {day.label}
+                  </Text>
+                  <MaterialCommunityIcons
+                    name={day.completed ? 'check-circle' : day.is_scheduled ? 'calendar-clock' : 'minus-circle-outline'}
+                    size={17}
+                    color={day.completed ? '#d9ff2b' : day.is_scheduled ? '#a78bfa' : 'rgba(255,255,255,0.24)'}
+                  />
+                </View>
+                <Text style={styles.weekDayRoutine} numberOfLines={2}>
+                  {day.is_scheduled ? day.routines.map((routine) => routine.name).join(', ') : 'Descanso'}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+
+          {today ? (
+            <Pressable
+              onPress={() => onToggleToday(today)}
+              disabled={updating}
+              style={[
+                styles.progressAction,
+                styles.progressModalAction,
+                today.completed && styles.progressActionDone,
+                updating && styles.progressActionDisabled,
+              ]}>
+              <MaterialCommunityIcons
+                name={today.completed ? 'check' : 'plus'}
+                size={15}
+                color={today.completed ? '#050505' : '#fff'}
+              />
+              <Text style={[styles.progressActionText, today.completed && styles.progressActionTextDone]}>
+                {updating
+                  ? 'Actualizando...'
+                  : today.completed
+                    ? 'Quitar marca de hoy'
+                    : 'Marcar entrenamiento de hoy'}
+              </Text>
+            </Pressable>
+          ) : null}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 function PromoCarousel({ compact }: { compact: boolean }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [incomingIndex, setIncomingIndex] = useState<number | null>(null);
@@ -559,6 +675,7 @@ export default function HomeScreen() {
   const muscles = useMuscles();
   const exercises = useExercises();
   const weeklyProgress = useWeeklyProgress();
+  const [progressModalVisible, setProgressModalVisible] = useState(false);
   const muscleCount = muscles.meta?.total ?? muscles.items.length;
   const exerciseCount = exercises.meta?.total ?? exercises.items.length;
   const isCompactLayout = width < 640;
@@ -610,17 +727,7 @@ export default function HomeScreen() {
       label: 'Ver progreso semanal',
       icon: ICONS.TrendingUp,
       hint: weeklyProgress.item ? `${weeklyProgress.item.percentage}% completado` : 'Resumen de esta semana',
-      onPress: () => {
-        if (weeklyProgress.item?.next_pending_day) {
-          Alert.alert(
-            'Progreso semanal',
-            `Siguiente pendiente: ${weeklyProgress.item.next_pending_day.label}.`
-          );
-          return;
-        }
-
-        Alert.alert('Progreso semanal', weeklyProgress.item?.status_label ?? 'Cargando progreso semanal.');
-      },
+      onPress: () => setProgressModalVisible(true),
     },
     {
       label: 'Explorar ejercicios',
@@ -686,6 +793,19 @@ export default function HomeScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+      <WeeklyProgressModal
+        visible={progressModalVisible}
+        progress={weeklyProgress.item}
+        updating={weeklyProgress.updating}
+        error={weeklyProgress.error}
+        onClose={() => setProgressModalVisible(false)}
+        onToggleToday={(day) => {
+          void weeklyProgress.submit({
+            date: day.date,
+            completed: !day.completed,
+          });
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -1148,6 +1268,100 @@ const styles = StyleSheet.create({
   },
   progressActionTextDone: {
     color: '#050505',
+  },
+  progressModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.74)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 22,
+  },
+  progressModalCard: {
+    width: '100%',
+    maxWidth: 720,
+    maxHeight: '92%',
+    borderRadius: 20,
+    padding: 22,
+    gap: 16,
+    backgroundColor: '#090910',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(139,92,246,0.28)',
+  },
+  progressModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  progressModalTitle: {
+    color: '#fff',
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: '800',
+    fontFamily: TYPOGRAPHY.fonts.display,
+  },
+  progressModalClose: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  progressModalStats: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  progressModalStat: {
+    flexGrow: 1,
+    flexBasis: 150,
+    borderRadius: 14,
+    padding: 14,
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.07)',
+  },
+  progressModalValue: {
+    color: '#d9ff2b',
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '800',
+    fontFamily: TYPOGRAPHY.fonts.mono,
+  },
+  progressModalDaysScroll: {
+    maxHeight: 310,
+  },
+  progressModalDays: {
+    gap: 8,
+    paddingRight: 2,
+  },
+  progressModalDay: {
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.025)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  progressModalDayDone: {
+    backgroundColor: 'rgba(217,255,43,0.08)',
+    borderColor: 'rgba(217,255,43,0.32)',
+  },
+  progressModalDayToday: {
+    borderColor: 'rgba(167,139,250,0.55)',
+  },
+  progressModalDayTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 10,
+  },
+  progressModalAction: {
+    alignSelf: 'stretch',
+    justifyContent: 'center',
   },
   statsRow: {
     flexDirection: 'row',

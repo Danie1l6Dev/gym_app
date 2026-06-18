@@ -119,7 +119,7 @@ export default function AdminManageRoutinesScreen() {
               backHref={ROUTES.app.adminManage}
               rightElement={
                 <Pressable
-                  onPress={() => router.push('manage/routines' as never)}
+                  onPress={() => router.push(ROUTES.app.routineCreate as never)}
                   style={({ pressed }) => [
                     styles.createButton,
                     { backgroundColor: theme.colors.primary },
@@ -147,7 +147,7 @@ export default function AdminManageRoutinesScreen() {
             style={[styles.routineCard, { backgroundColor: theme.colors.surface }]}
           >
             <View style={styles.routineInfo}>
-              <TextBlock variant="subtitle" style={styles.routineName}>
+              <TextBlock variant="title" style={styles.routineName}>
                 {item.name}
               </TextBlock>
               {item.description && (
@@ -185,8 +185,8 @@ export default function AdminManageRoutinesScreen() {
               <Pressable
                 onPress={() =>
                   router.push({
-                    pathname: ROUTES.app.adminManageRoutines + '/[id]',
-                    params: { id: item.id },
+                    pathname: ROUTES.app.routineCreate,
+                    params: { id: String(item.id) },
                   } as never)
                 }
                 style={({ pressed }) => [
@@ -222,9 +222,7 @@ export default function AdminManageRoutinesScreen() {
             description="No hay rutinas registradas. Crea una para comenzar."
             icon="playlist-remove"
             actionLabel="Crear rutina"
-            onAction={() =>
-              router.push(ROUTES.app.adminManageRoutines + '/new' as never)
-            }
+            onAction={() => router.push(ROUTES.app.routineCreate as never)}
           />
         }
       />
