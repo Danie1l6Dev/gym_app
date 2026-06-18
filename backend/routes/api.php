@@ -15,7 +15,7 @@ Route::prefix('v1')->group(function (): void {
     Route::prefix('auth')->group(function (): void {
         Route::post('login', [AuthController::class, 'login']);
 
-        Route::middleware('auth:sanctum')->group(function (): void {
+        Route::middleware(['auth:sanctum', 'account.active'])->group(function (): void {
             Route::get('me', [AuthController::class, 'me']);
             Route::put('me', [AuthController::class, 'updateMe']);
             Route::post('me', [AuthController::class, 'updateMe']);
@@ -31,7 +31,7 @@ Route::prefix('v1')->group(function (): void {
     Route::get('exercises', [ExerciseController::class, 'index']);
     Route::get('exercises/{exercise}', [ExerciseController::class, 'show']);
 
-    Route::middleware('auth:sanctum')->group(function (): void {
+    Route::middleware(['auth:sanctum', 'account.active'])->group(function (): void {
         Route::get('weekly-progress', [WeeklyProgressController::class, 'show']);
         Route::put('weekly-progress', [WeeklyProgressController::class, 'update']);
 
@@ -42,7 +42,7 @@ Route::prefix('v1')->group(function (): void {
         Route::delete('routines/{routine}', [RoutineController::class, 'destroy']);
     });
 
-    Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function (): void {
+    Route::middleware(['auth:sanctum', 'account.active', 'role:admin'])->prefix('admin')->group(function (): void {
         Route::get('users', [UserController::class, 'index']);
         Route::post('users', [UserController::class, 'store']);
         Route::get('users/{user}', [UserController::class, 'show']);

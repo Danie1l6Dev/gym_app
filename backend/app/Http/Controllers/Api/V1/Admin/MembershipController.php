@@ -8,10 +8,16 @@ use App\Http\Requests\Api\V1\Admin\StoreMembershipRequest;
 use App\Http\Requests\Api\V1\Admin\UpdateMembershipRequest;
 use App\Http\Resources\Api\V1\MembershipResource;
 use App\Models\Membership;
+use App\Services\Memberships\MembershipAccountStatusService;
 use Illuminate\Http\JsonResponse;
 
 class MembershipController extends Controller
 {
+    public function __construct(
+        private readonly MembershipAccountStatusService $accountStatusService,
+    ) {
+    }
+
     public function index(MembershipIndexRequest $request): JsonResponse
     {
         $filters = $request->validated();
@@ -68,7 +74,8 @@ class MembershipController extends Controller
 
     public function store(StoreMembershipRequest $request): JsonResponse
     {
-        $membership = Membership::create($request->validated());
+        $membership = Membership::create($this->normalizePaidMembershipData($request->validated()));
+        $this->accountStatusService->syncFromMembership($membership);
 
         return MembershipResource::make($membership->load(['user', 'type']))
             ->additional(['message' => 'Membresía creada correctamente.'])
@@ -78,10 +85,20 @@ class MembershipController extends Controller
 
     public function update(UpdateMembershipRequest $request, Membership $membership): JsonResponse
     {
-        $membership->update($request->validated());
+        $membership->update($this->normalizePaidMembershipData($request->validated()));
+        $this->accountStatusService->syncFromMembership($membership);
 
         return MembershipResource::make($membership->load(['user', 'type']))
             ->additional(['message' => 'Membresía actualizada correctamente.'])
             ->response();
+    }
+
+    private function normalizePaidMembershipData(array $data): array
+    {
+        if (($data['status'] ?? 'active') === 'active' && ! array_key_exists('paid_at', $data)) {
+            $data['paid_at'] = now();
+        }
+
+        return $data;
     }
 }

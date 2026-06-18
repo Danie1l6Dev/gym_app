@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
 import { EmptyState } from '@/components/EmptyState';
@@ -8,10 +9,12 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS } from '@/constants';
-import { useAdminUser, useWeeklyProgress } from '@/hooks';
+import { useAdminUser, useMembershipTypes, useWeeklyProgress } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
 import type { WeeklyProgress } from '@/interfaces/weekly-progress';
 import type { Membership } from '@/interfaces/membership';
+import type { MembershipType } from '@/interfaces/membership-type';
+import { createMembership } from '@/services/admin.service';
 import { formatShortDate } from '@/utils/dates';
 
 type UserParams = {
@@ -66,6 +69,21 @@ function formatPrice(value?: string | number | null) {
 
 function resolvePlanLabel(membership?: Membership | null) {
   return membership?.plan_label ?? membership?.plan_type ?? 'Sin membresia';
+}
+
+function formatDateInput(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function createEndDate(durationDays?: number | null): string {
+  const date = new Date();
+  date.setDate(date.getDate() + Math.max(Number(durationDays ?? 0), 0));
+
+  return formatDateInput(date);
 }
 
 function DetailGrid({ items }: { items: DetailItem[] }) {
@@ -166,8 +184,10 @@ function WeeklyProgressSummary({
 export default function UserDetailScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<UserParams>();
-  const { item, loading, error, retry } = useAdminUser(id);
+  const { item, loading, error, retry, refresh } = useAdminUser(id);
   const weeklyProgress = useWeeklyProgress({ admin: true, userId: id });
+  const membershipTypes = useMembershipTypes();
+  const [renewingPlan, setRenewingPlan] = useState<string | null>(null);
 
   if (loading && !item) {
     return (
@@ -196,6 +216,50 @@ export default function UserDetailScreen() {
   const membership = item.latest_membership;
   const genderLabel = item.gender ? GENDER_LABELS[item.gender] ?? item.gender : 'Sin registrar';
   const memberships = item.memberships ?? [];
+  const activeMembershipTypes = membershipTypes.items.filter((membershipType) => membershipType.is_active);
+  const canRenewMembership = item.role?.slug !== 'admin';
+
+  async function handleRenewMembership(membershipType: MembershipType) {
+    if (renewingPlan || !item) {
+      return;
+    }
+
+    const startsAt = formatDateInput(new Date());
+    const endsAt = createEndDate(membershipType.duration_days);
+    const userId = item.id;
+
+    async function renew() {
+      try {
+        setRenewingPlan(membershipType.code);
+        await createMembership({
+          user_id: userId,
+          plan_type: membershipType.code,
+          starts_at: startsAt,
+          ends_at: endsAt,
+          status: 'active',
+          price: Number(membershipType.price),
+          notes: `Renovacion registrada desde el perfil del usuario. Vence ${endsAt}.`,
+        });
+        await refresh();
+      } catch (err) {
+        Alert.alert(
+          'No pudimos renovar',
+          err instanceof Error ? err.message : 'Intenta nuevamente.'
+        );
+      } finally {
+        setRenewingPlan(null);
+      }
+    }
+
+    Alert.alert(
+      'Renovar membresia',
+      `Se activara ${membershipType.name} desde hoy hasta ${endsAt}.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Renovar', onPress: () => void renew() },
+      ]
+    );
+  }
 
   const accountItems: DetailItem[] = [
     { icon: 'identifier', label: 'ID', value: String(item.id) },
@@ -250,6 +314,49 @@ export default function UserDetailScreen() {
         <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
           <TextBlock variant="title">Membresia actual</TextBlock>
           <DetailGrid items={membershipItems} />
+
+          {canRenewMembership ? (
+            <View style={[styles.renewBox, { backgroundColor: theme.colors.surfaceElevated }]}>
+              <View style={styles.renewHeader}>
+                <View style={styles.renewCopy}>
+                  <TextBlock variant="title">Renovar y reactivar</TextBlock>
+                  <TextBlock variant="caption" color="muted">
+                    Crea una membresia pagada desde hoy. Si la cuenta estaba inactiva, se reactiva automaticamente.
+                  </TextBlock>
+                </View>
+                {membershipTypes.loading ? <ActivityIndicator color={theme.colors.primary} /> : null}
+              </View>
+
+              <View style={styles.renewActions}>
+                {activeMembershipTypes.map((membershipType) => (
+                  <Pressable
+                    key={membershipType.id}
+                    disabled={Boolean(renewingPlan)}
+                    onPress={() => void handleRenewMembership(membershipType)}
+                    style={({ pressed }) => [
+                      styles.renewButton,
+                      {
+                        backgroundColor: theme.colors.primary,
+                        borderColor: theme.colors.primary,
+                      },
+                      pressed && styles.pressed,
+                      renewingPlan && styles.disabled,
+                    ]}>
+                    {renewingPlan === membershipType.code ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <>
+                        <MaterialCommunityIcons name="credit-card-check-outline" size={16} color="#fff" />
+                        <TextBlock variant="button" style={styles.renewButtonText}>
+                          {membershipType.name}
+                        </TextBlock>
+                      </>
+                    )}
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
         </View>
 
         <WeeklyProgressSummary
@@ -340,6 +447,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  renewBox: {
+    borderRadius: 18,
+    padding: 14,
+    gap: 12,
+  },
+  renewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  renewCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  renewActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  renewButton: {
+    minHeight: 44,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  renewButtonText: {
+    color: '#fff',
+  },
+  pressed: {
+    opacity: 0.82,
+  },
+  disabled: {
+    opacity: 0.66,
   },
   sectionHeader: {
     flexDirection: 'row',

@@ -7,6 +7,7 @@ use App\Http\Requests\Api\V1\Auth\LoginRequest;
 use App\Http\Requests\Api\V1\Auth\UpdateProfileRequest;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\User;
+use App\Services\Memberships\MembershipAccountStatusService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,6 +17,11 @@ use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
+    public function __construct(
+        private readonly MembershipAccountStatusService $accountStatusService,
+    ) {
+    }
+
     public function login(LoginRequest $request): JsonResponse
     {
         if ($lockoutResponse = $this->ensureIsNotRateLimited($request)) {
@@ -23,6 +29,7 @@ class AuthController extends Controller
         }
 
         $credentials = $request->validated();
+        $this->syncAccountStatusBeforeLogin($credentials['email'] ?? null);
         $credentials['is_active'] = true;
 
         if (! Auth::attempt($credentials)) {
@@ -120,6 +127,22 @@ class AuthController extends Controller
                 'retry_after_minutes' => (int) ceil($seconds / 60),
             ],
         ], 429);
+    }
+
+    private function syncAccountStatusBeforeLogin(?string $email): void
+    {
+        if (! $email) {
+            return;
+        }
+
+        $user = User::query()
+            ->with('role')
+            ->where('email', $email)
+            ->first();
+
+        if ($user) {
+            $this->accountStatusService->syncUser($user);
+        }
     }
 
     private function throttleKey(LoginRequest $request): string
