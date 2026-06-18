@@ -14,9 +14,11 @@ class SyncMembershipAccountStatusesCommand extends Command
     public function handle(MembershipAccountStatusService $service): int
     {
         $expiredMemberships = $service->expireOutdatedMemberships();
+        $closedSupersededMemberships = $service->closeSupersededActiveMemberships();
         $syncedUsers = $service->syncAllUsers();
 
         $this->info("Membresias vencidas actualizadas: {$expiredMemberships}");
+        $this->info("Membresias activas anteriores cerradas: {$closedSupersededMemberships}");
         $this->info("Usuarios sincronizados: {$syncedUsers}");
 
         return self::SUCCESS;

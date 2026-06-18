@@ -10,6 +10,7 @@ use App\Http\Resources\Api\V1\MembershipResource;
 use App\Models\Membership;
 use App\Services\Memberships\MembershipAccountStatusService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class MembershipController extends Controller
 {
@@ -63,6 +64,20 @@ class MembershipController extends Controller
         $memberships = Membership::query()
             ->with(['user', 'type'])
             ->where('status', 'active')
+            ->whereNotExists(function ($query): void {
+                $query->selectRaw('1')
+                    ->from('memberships as newer_memberships')
+                    ->whereColumn('newer_memberships.user_id', 'memberships.user_id')
+                    ->where('newer_memberships.status', 'active')
+                    ->where(function ($inner): void {
+                        $inner->whereColumn('newer_memberships.ends_at', '>', 'memberships.ends_at')
+                            ->orWhere(function ($sameEndDate): void {
+                                $sameEndDate
+                                    ->whereColumn('newer_memberships.ends_at', 'memberships.ends_at')
+                                    ->whereColumn('newer_memberships.id', '>', 'memberships.id');
+                            });
+                    });
+            })
             ->whereBetween('ends_at', [now()->toDateString(), now()->addDays($days)->toDateString()])
             ->orderBy('ends_at')
             ->paginate($filters['per_page'] ?? 15);
@@ -74,8 +89,14 @@ class MembershipController extends Controller
 
     public function store(StoreMembershipRequest $request): JsonResponse
     {
-        $membership = Membership::create($this->normalizePaidMembershipData($request->validated()));
-        $this->accountStatusService->syncFromMembership($membership);
+        $membership = DB::transaction(function () use ($request): Membership {
+            $membership = Membership::create($this->normalizePaidMembershipData($request->validated()));
+            $this->closePreviousActiveMemberships($membership);
+
+            return $membership;
+        });
+
+        $this->accountStatusService->reactivateFromPaidMembership($membership);
 
         return MembershipResource::make($membership->load(['user', 'type']))
             ->additional(['message' => 'Membresía creada correctamente.'])
@@ -85,8 +106,12 @@ class MembershipController extends Controller
 
     public function update(UpdateMembershipRequest $request, Membership $membership): JsonResponse
     {
-        $membership->update($this->normalizePaidMembershipData($request->validated()));
-        $this->accountStatusService->syncFromMembership($membership);
+        DB::transaction(function () use ($request, $membership): void {
+            $membership->update($this->normalizePaidMembershipData($request->validated()));
+            $this->closePreviousActiveMemberships($membership);
+        });
+
+        $this->accountStatusService->reactivateFromPaidMembership($membership);
 
         return MembershipResource::make($membership->load(['user', 'type']))
             ->additional(['message' => 'Membresía actualizada correctamente.'])
@@ -100,5 +125,18 @@ class MembershipController extends Controller
         }
 
         return $data;
+    }
+
+    private function closePreviousActiveMemberships(Membership $membership): void
+    {
+        if ($membership->status !== 'active' || $membership->paid_at === null) {
+            return;
+        }
+
+        Membership::query()
+            ->where('user_id', $membership->user_id)
+            ->whereKeyNot($membership->id)
+            ->where('status', 'active')
+            ->update(['status' => 'expired']);
     }
 }

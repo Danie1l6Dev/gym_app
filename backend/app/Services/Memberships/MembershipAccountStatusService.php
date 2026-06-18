@@ -16,6 +16,15 @@ class MembershipAccountStatusService
             return $user;
         }
 
+        if ($user->manually_deactivated_at !== null) {
+            if ($user->is_active) {
+                $user->forceFill(['is_active' => false])->save();
+                $user->tokens()->delete();
+            }
+
+            return $user->refresh();
+        }
+
         $shouldBeActive = $this->hasCurrentPaidMembership($user);
 
         if ($user->is_active !== $shouldBeActive) {
@@ -34,6 +43,24 @@ class MembershipAccountStatusService
         return $this->syncUser($membership->user()->with('role')->firstOrFail());
     }
 
+    public function reactivateFromPaidMembership(Membership $membership): User
+    {
+        $user = $membership->user()->with('role')->firstOrFail();
+
+        if ($user->role?->slug === 'admin') {
+            return $user;
+        }
+
+        if ($this->membershipIsCurrentAndPaid($membership)) {
+            $user->forceFill([
+                'is_active' => true,
+                'manually_deactivated_at' => null,
+            ])->save();
+        }
+
+        return $this->syncUser($user->refresh());
+    }
+
     public function expireOutdatedMemberships(): int
     {
         $today = Carbon::today()->toDateString();
@@ -42,6 +69,41 @@ class MembershipAccountStatusService
             ->where('status', 'active')
             ->whereDate('ends_at', '<', $today)
             ->update(['status' => 'expired']);
+    }
+
+    public function closeSupersededActiveMemberships(): int
+    {
+        $closed = 0;
+
+        Membership::query()
+            ->select('user_id')
+            ->where('status', 'active')
+            ->groupBy('user_id')
+            ->havingRaw('COUNT(*) > 1')
+            ->pluck('user_id')
+            ->each(function ($userId) use (&$closed): void {
+                $activeMemberships = Membership::query()
+                    ->where('user_id', $userId)
+                    ->where('status', 'active')
+                    ->orderByDesc('ends_at')
+                    ->orderByDesc('id')
+                    ->get();
+
+                $keep = $activeMemberships->first();
+
+                if (! $keep) {
+                    return;
+                }
+
+                $closed += Membership::query()
+                    ->whereIn('id', $activeMemberships
+                        ->pluck('id')
+                        ->filter(fn ($id) => (int) $id !== (int) $keep->id)
+                        ->values())
+                    ->update(['status' => 'expired']);
+            });
+
+        return $closed;
     }
 
     public function syncAllUsers(): int
@@ -71,5 +133,15 @@ class MembershipAccountStatusService
             ->whereDate('starts_at', '<=', $today)
             ->whereDate('ends_at', '>=', $today)
             ->exists();
+    }
+
+    private function membershipIsCurrentAndPaid(Membership $membership): bool
+    {
+        $today = Carbon::today();
+
+        return $membership->status === 'active'
+            && $membership->paid_at !== null
+            && Carbon::parse($membership->starts_at)->lte($today)
+            && Carbon::parse($membership->ends_at)->gte($today);
     }
 }

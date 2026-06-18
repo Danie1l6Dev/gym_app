@@ -1,20 +1,20 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
-import { DIMENSIONS } from '@/constants';
-import { useAdminUser, useMembershipTypes, useWeeklyProgress } from '@/hooks';
+import { DIMENSIONS, ROUTES } from '@/constants';
+import { useAdminUser, useAuth, useMembershipTypes, useWeeklyProgress } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
 import type { WeeklyProgress } from '@/interfaces/weekly-progress';
 import type { Membership } from '@/interfaces/membership';
 import type { MembershipType } from '@/interfaces/membership-type';
-import { createMembership } from '@/services/admin.service';
+import { createMembership, deleteAdminUser } from '@/services/admin.service';
 import { formatShortDate } from '@/utils/dates';
 
 type UserParams = {
@@ -187,7 +187,9 @@ export default function UserDetailScreen() {
   const { item, loading, error, retry, refresh } = useAdminUser(id);
   const weeklyProgress = useWeeklyProgress({ admin: true, userId: id });
   const membershipTypes = useMembershipTypes();
+  const { user: currentUser } = useAuth();
   const [renewingPlan, setRenewingPlan] = useState<string | null>(null);
+  const [deletingUser, setDeletingUser] = useState(false);
 
   if (loading && !item) {
     return (
@@ -213,20 +215,69 @@ export default function UserDetailScreen() {
     );
   }
 
-  const membership = item.latest_membership;
-  const genderLabel = item.gender ? GENDER_LABELS[item.gender] ?? item.gender : 'Sin registrar';
-  const memberships = item.memberships ?? [];
+  const user = item;
+  const membership = user.latest_membership;
+  const genderLabel = user.gender ? GENDER_LABELS[user.gender] ?? user.gender : 'Sin registrar';
+  const memberships = user.memberships ?? [];
   const activeMembershipTypes = membershipTypes.items.filter((membershipType) => membershipType.is_active);
-  const canRenewMembership = item.role?.slug !== 'admin';
+  const canRenewMembership = user.role?.slug !== 'admin';
+  const isCurrentUser = String(currentUser?.id) === String(user.id);
+
+  function handleEditUser() {
+    router.push({
+      pathname: ROUTES.app.adminManageUserDetail,
+      params: { id: user.id },
+    } as never);
+  }
+
+  function handleDeleteUser() {
+    if (isCurrentUser) {
+      Alert.alert('Accion no permitida', 'No puedes eliminar tu propia cuenta administrativa.');
+      return;
+    }
+
+    const deleteUser = async () => {
+      try {
+        setDeletingUser(true);
+        await deleteAdminUser(user.id);
+        router.replace(ROUTES.app.adminManageUsers as never);
+      } catch (err) {
+        Alert.alert('No pudimos eliminar', err instanceof Error ? err.message : 'Intenta nuevamente.');
+      } finally {
+        setDeletingUser(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        `Seguro que deseas eliminar a ${user.name}? Esta accion no se puede deshacer.`
+      );
+
+      if (confirmed) {
+        void deleteUser();
+      }
+
+      return;
+    }
+
+    Alert.alert(
+      'Eliminar usuario',
+      `Seguro que deseas eliminar a ${user.name}? Esta accion no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => void deleteUser() },
+      ]
+    );
+  }
 
   async function handleRenewMembership(membershipType: MembershipType) {
-    if (renewingPlan || !item) {
+    if (renewingPlan) {
       return;
     }
 
     const startsAt = formatDateInput(new Date());
     const endsAt = createEndDate(membershipType.duration_days);
-    const userId = item.id;
+    const userId = user.id;
 
     async function renew() {
       try {
@@ -238,9 +289,14 @@ export default function UserDetailScreen() {
           ends_at: endsAt,
           status: 'active',
           price: Number(membershipType.price),
+          paid_at: startsAt,
           notes: `Renovacion registrada desde el perfil del usuario. Vence ${endsAt}.`,
         });
         await refresh();
+        Alert.alert(
+          'Membresia renovada',
+          'La cuenta quedo activa y el usuario ya puede ingresar con normalidad.'
+        );
       } catch (err) {
         Alert.alert(
           'No pudimos renovar',
@@ -249,6 +305,18 @@ export default function UserDetailScreen() {
       } finally {
         setRenewingPlan(null);
       }
+    }
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        `Se activara ${membershipType.name} desde hoy hasta ${endsAt}. Deseas continuar?`
+      );
+
+      if (confirmed) {
+        void renew();
+      }
+
+      return;
     }
 
     Alert.alert(
@@ -298,6 +366,45 @@ export default function UserDetailScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <AppHeader title={item.name} subtitle={item.email} showBack />
 
+        <View style={[styles.actionsCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <Pressable
+            onPress={handleEditUser}
+            disabled={deletingUser}
+            style={({ pressed }) => [
+              styles.detailActionButton,
+              { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+              pressed && !deletingUser && styles.pressed,
+              deletingUser && styles.disabled,
+            ]}
+          >
+            <MaterialCommunityIcons name="account-edit-outline" size={18} color="#fff" />
+            <TextBlock variant="button" style={styles.detailActionPrimaryText}>
+              Editar usuario
+            </TextBlock>
+          </Pressable>
+
+          <Pressable
+            onPress={handleDeleteUser}
+            disabled={deletingUser || isCurrentUser}
+            style={({ pressed }) => [
+              styles.detailActionButton,
+              styles.detailActionDanger,
+              { borderColor: theme.colors.danger },
+              pressed && !deletingUser && !isCurrentUser && styles.pressed,
+              (deletingUser || isCurrentUser) && styles.disabled,
+            ]}
+          >
+            {deletingUser ? (
+              <ActivityIndicator size="small" color={theme.colors.danger} />
+            ) : (
+              <MaterialCommunityIcons name="trash-can-outline" size={18} color={theme.colors.danger} />
+            )}
+            <TextBlock variant="button" style={{ color: theme.colors.danger }}>
+              {deletingUser ? 'Eliminando...' : 'Eliminar usuario'}
+            </TextBlock>
+          </Pressable>
+        </View>
+
         <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
           <TextBlock variant="eyebrow" color="primary">
             Cuenta
@@ -328,32 +435,38 @@ export default function UserDetailScreen() {
               </View>
 
               <View style={styles.renewActions}>
-                {activeMembershipTypes.map((membershipType) => (
-                  <Pressable
-                    key={membershipType.id}
-                    disabled={Boolean(renewingPlan)}
-                    onPress={() => void handleRenewMembership(membershipType)}
-                    style={({ pressed }) => [
-                      styles.renewButton,
-                      {
-                        backgroundColor: theme.colors.primary,
-                        borderColor: theme.colors.primary,
-                      },
-                      pressed && styles.pressed,
-                      renewingPlan && styles.disabled,
-                    ]}>
-                    {renewingPlan === membershipType.code ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <>
-                        <MaterialCommunityIcons name="credit-card-check-outline" size={16} color="#fff" />
-                        <TextBlock variant="button" style={styles.renewButtonText}>
-                          {membershipType.name}
-                        </TextBlock>
-                      </>
-                    )}
-                  </Pressable>
-                ))}
+                {activeMembershipTypes.length > 0 ? (
+                  activeMembershipTypes.map((membershipType) => (
+                    <Pressable
+                      key={membershipType.id}
+                      disabled={Boolean(renewingPlan)}
+                      onPress={() => void handleRenewMembership(membershipType)}
+                      style={({ pressed }) => [
+                        styles.renewButton,
+                        {
+                          backgroundColor: theme.colors.primary,
+                          borderColor: theme.colors.primary,
+                        },
+                        pressed && styles.pressed,
+                        renewingPlan && styles.disabled,
+                      ]}>
+                      {renewingPlan === membershipType.code ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <>
+                          <MaterialCommunityIcons name="credit-card-check-outline" size={16} color="#fff" />
+                          <TextBlock variant="button" style={styles.renewButtonText}>
+                            {membershipType.name}
+                          </TextBlock>
+                        </>
+                      )}
+                    </Pressable>
+                  ))
+                ) : (
+                  <TextBlock variant="caption" color="muted">
+                    No hay planes de membresia activos para renovar.
+                  </TextBlock>
+                )}
               </View>
             </View>
           ) : null}
@@ -413,6 +526,32 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: 18,
     gap: 14,
+  },
+  actionsCard: {
+    borderRadius: DIMENSIONS.cardRadius,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  detailActionButton: {
+    flexGrow: 1,
+    flexBasis: 180,
+    minHeight: 48,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  detailActionDanger: {
+    backgroundColor: 'transparent',
+  },
+  detailActionPrimaryText: {
+    color: '#fff',
   },
   grid: {
     flexDirection: 'row',

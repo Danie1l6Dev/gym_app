@@ -25,6 +25,7 @@ class UserResource extends JsonResource
             'profile_photo' => $this->profile_photo,
             'avatarUrl' => $this->resolveAvatarUrl($request),
             'is_active' => $this->is_active,
+            'manually_deactivated_at' => $this->manually_deactivated_at,
             'role' => RoleResource::make($this->whenLoaded('role')),
             'latest_membership' => MembershipResource::make($this->whenLoaded('latestMembership')),
             'routines' => RoutineResource::collection($this->whenLoaded('routines')),

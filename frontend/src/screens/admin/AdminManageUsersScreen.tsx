@@ -18,8 +18,9 @@ import { SearchBar } from '@/components/SearchBar';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { DIMENSIONS, ROUTES } from '@/constants';
-import { useAdminUsers } from '@/hooks';
+import { useAdminUsers, useAuth } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
+import type { AdminUser } from '@/interfaces/admin';
 import { deleteAdminUser } from '@/services/admin.service';
 
 type UsersView = 'users' | 'admins';
@@ -30,6 +31,7 @@ export default function AdminManageUsersScreen() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [view, setView] = useState<UsersView>('users');
   const [deleting, setDeleting] = useState<string | number | null>(null);
+  const { user: currentUser } = useAuth();
   const role = view === 'admins' ? 'admin' : 'user';
   const { items, loading, refreshing, error, refresh, retry, loadMore, hasMore } =
     useAdminUsers(debouncedSearch, 10, role);
@@ -53,14 +55,19 @@ export default function AdminManageUsersScreen() {
     return () => clearTimeout(timeout);
   }, [search]);
 
-  const handleDelete = (userId: string | number, userName: string) => {
+  const handleDelete = (userToDelete: AdminUser) => {
+    if (String(currentUser?.id) === String(userToDelete.id)) {
+      Alert.alert('Accion no permitida', 'No puedes eliminar tu propia cuenta desde esta pantalla.');
+      return;
+    }
+
     const deleteUser = async () => {
-      setDeleting(userId);
+      setDeleting(userToDelete.id);
       try {
-        await deleteAdminUser(userId);
+        await deleteAdminUser(userToDelete.id);
         await refresh();
       } catch (err) {
-        Alert.alert('Error', 'No se pudo eliminar el usuario');
+        Alert.alert('Error', err instanceof Error ? err.message : 'No se pudo eliminar el usuario');
       } finally {
         setDeleting(null);
       }
@@ -68,7 +75,7 @@ export default function AdminManageUsersScreen() {
 
     if (Platform.OS === 'web') {
       const confirmed = window.confirm(
-        `¿Está seguro que desea eliminar a ${userName}? Esta acción no se puede deshacer.`
+        `Seguro que deseas eliminar a ${userToDelete.name}? Esta accion no se puede deshacer.`
       );
 
       if (confirmed) {
@@ -80,7 +87,7 @@ export default function AdminManageUsersScreen() {
 
     Alert.alert(
       'Eliminar usuario',
-      `¿Está seguro que desea eliminar a ${userName}? Esta acción no se puede deshacer.`,
+      `Seguro que deseas eliminar a ${userToDelete.name}? Esta accion no se puede deshacer.`,
       [
         {
           text: 'Cancelar',
@@ -219,6 +226,24 @@ export default function AdminManageUsersScreen() {
               <Pressable
                 onPress={() =>
                   router.push({
+                    pathname: ROUTES.app.adminUserDetail,
+                    params: { id: item.id },
+                  } as never)
+                }
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border },
+                  pressed && styles.actionButtonPressed,
+                ]}
+              >
+                <TextBlock variant="caption" color="muted">
+                  Ver
+                </TextBlock>
+              </Pressable>
+
+              <Pressable
+                onPress={() =>
+                  router.push({
                     pathname: ROUTES.app.adminManageUserDetail,
                     params: { id: item.id },
                   } as never)
@@ -235,12 +260,13 @@ export default function AdminManageUsersScreen() {
               </Pressable>
 
               <Pressable
-                onPress={() => handleDelete(item.id, item.name || 'Usuario')}
-                disabled={deleting === item.id}
+                onPress={() => handleDelete(item)}
+                disabled={deleting === item.id || String(currentUser?.id) === String(item.id)}
                 style={({ pressed }) => [
                   styles.actionButton,
                   { backgroundColor: '#FF6B6B' },
-                  pressed && styles.actionButtonPressed,
+                  (deleting === item.id || String(currentUser?.id) === String(item.id)) && styles.disabledAction,
+                  pressed && deleting !== item.id && styles.actionButtonPressed,
                 ]}
               >
                 <TextBlock variant="caption" style={styles.buttonLabel}>
@@ -322,9 +348,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: DIMENSIONS.chipRadius,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'transparent',
     alignItems: 'center',
   },
   actionButtonPressed: {
     opacity: 0.7,
+  },
+  disabledAction: {
+    opacity: 0.45,
   },
 });

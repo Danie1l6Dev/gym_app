@@ -2,6 +2,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,10 +18,11 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ScreenContainer } from '@/components/ScreenContainer';
 import { TextBlock } from '@/components/TextBlock';
 import { ADMIN_ROLE_OPTIONS, DIMENSIONS, ROUTES } from '@/constants';
-import { useMembershipTypes } from '@/hooks';
+import { useAuth, useMembershipTypes } from '@/hooks';
 import { useTheme } from '@/hooks/use-theme';
 import {
   createAdminUser,
+  deleteAdminUser,
   fetchAdminUserById,
   updateAdminUser,
 } from '@/services/admin.service';
@@ -93,8 +96,10 @@ export default function AdminUserFormScreen() {
   });
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const { user: currentUser } = useAuth();
   const { items: membershipTypes } = useMembershipTypes();
   const activeMembershipTypes = useMemo(
     () => membershipTypes.filter((membershipType) => membershipType.is_active),
@@ -118,8 +123,9 @@ export default function AdminUserFormScreen() {
 
   const canSubmit = useMemo(() => {
     const baseReady = Boolean(values.name.trim() && values.email.trim());
+    const hasPasswordInput = Boolean(values.password || values.passwordConfirmation);
     const passwordReady = isEditing
-      ? !values.password || values.password === values.passwordConfirmation
+      ? !hasPasswordInput || Boolean(values.password && values.password === values.passwordConfirmation)
       : Boolean(values.password && values.passwordConfirmation && values.password === values.passwordConfirmation);
 
     if (!baseReady || !passwordReady) {
@@ -201,6 +207,11 @@ export default function AdminUserFormScreen() {
       return;
     }
 
+    if (values.password !== values.passwordConfirmation) {
+      setValidationError('La confirmacion de contrasena no coincide.');
+      return;
+    }
+
     try {
       setSaving(true);
       setValidationError(null);
@@ -243,6 +254,49 @@ export default function AdminUserFormScreen() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleDelete() {
+    if (!params.id) {
+      return;
+    }
+
+    if (String(currentUser?.id) === String(params.id)) {
+      setValidationError('No puedes eliminar tu propia cuenta administrativa.');
+      return;
+    }
+
+    const deleteUser = async () => {
+      try {
+        setDeleting(true);
+        setValidationError(null);
+        await deleteAdminUser(params.id as string);
+        router.replace(ROUTES.app.adminManageUsers as never);
+      } catch (err) {
+        setValidationError(err instanceof Error ? err.message : 'No pudimos eliminar el usuario.');
+      } finally {
+        setDeleting(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Seguro que deseas eliminar este usuario? Esta accion no se puede deshacer.');
+
+      if (confirmed) {
+        void deleteUser();
+      }
+
+      return;
+    }
+
+    Alert.alert(
+      'Eliminar usuario',
+      'Seguro que deseas eliminar este usuario? Esta accion no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => void deleteUser() },
+      ]
+    );
   }
 
   if (loading) {
@@ -380,15 +434,59 @@ export default function AdminUserFormScreen() {
             </View>
           </View>
 
-          <View style={styles.row}>
-            <View style={[styles.field, styles.rowField]}>
-              <TextBlock variant="caption" color="muted">{isEditing ? 'Nueva contrasena' : 'Contrasena'}</TextBlock>
-              <TextInput value={values.password} onChangeText={(value) => updateField('password', value)} placeholder={isEditing ? 'Opcional' : 'Minimo 8 caracteres'} secureTextEntry placeholderTextColor={theme.colors.textSubtle} style={[styles.input, { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border, color: theme.colors.text }]} />
+          <View style={[styles.passwordBox, { backgroundColor: theme.colors.backgroundSoft, borderColor: theme.colors.border }]}>
+            <View style={styles.passwordHeader}>
+              <TextBlock variant="title">{isEditing ? 'Cambiar contrasena' : 'Contrasena de acceso'}</TextBlock>
+              <TextBlock variant="caption" color="muted">
+                {isEditing
+                  ? 'Escribe una nueva contrasena solo si deseas cambiarla. Se cerraran las sesiones abiertas del usuario.'
+                  : 'Define la contrasena inicial del usuario.'}
+              </TextBlock>
             </View>
-            <View style={[styles.field, styles.rowField]}>
-              <TextBlock variant="caption" color="muted">Confirmar</TextBlock>
-              <TextInput value={values.passwordConfirmation} onChangeText={(value) => updateField('passwordConfirmation', value)} placeholder="Repetir contrasena" secureTextEntry placeholderTextColor={theme.colors.textSubtle} style={[styles.input, { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border, color: theme.colors.text }]} />
+
+            <View style={styles.row}>
+              <View style={[styles.field, styles.rowField]}>
+                <TextBlock variant="caption" color="muted">
+                  {isEditing ? 'Nueva contrasena' : 'Contrasena'}
+                </TextBlock>
+                <TextInput
+                  value={values.password}
+                  onChangeText={(value) => updateField('password', value)}
+                  placeholder={isEditing ? 'Dejar vacio para no cambiar' : 'Minimo 8 caracteres'}
+                  secureTextEntry
+                  textContentType="newPassword"
+                  autoCapitalize="none"
+                  placeholderTextColor={theme.colors.textSubtle}
+                  style={[styles.input, { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border, color: theme.colors.text }]}
+                />
+              </View>
+              <View style={[styles.field, styles.rowField]}>
+                <TextBlock variant="caption" color="muted">Confirmar contrasena</TextBlock>
+                <TextInput
+                  value={values.passwordConfirmation}
+                  onChangeText={(value) => updateField('passwordConfirmation', value)}
+                  placeholder="Repetir contrasena"
+                  secureTextEntry
+                  textContentType="newPassword"
+                  autoCapitalize="none"
+                  placeholderTextColor={theme.colors.textSubtle}
+                  style={[styles.input, { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border, color: theme.colors.text }]}
+                />
+              </View>
             </View>
+
+            {values.password || values.passwordConfirmation ? (
+              <TextBlock
+                variant="caption"
+                color={values.password.length >= 8 && values.password === values.passwordConfirmation ? 'primary' : 'subtle'}
+              >
+                {values.password.length < 8
+                  ? 'Debe tener al menos 8 caracteres.'
+                  : values.password === values.passwordConfirmation
+                    ? 'La contrasena esta lista para actualizarse.'
+                    : 'Las contrasenas no coinciden.'}
+              </TextBlock>
+            ) : null}
           </View>
 
           {!isEditing && values.roleSlug === 'user' ? (
@@ -437,20 +535,43 @@ export default function AdminUserFormScreen() {
 
           <Pressable
             onPress={() => void handleSubmit()}
-            disabled={saving}
+            disabled={saving || deleting}
             style={({ pressed }) => [
               styles.submit,
               { backgroundColor: theme.colors.primary },
-              pressed && !saving && styles.pressed,
-              saving && styles.disabled,
+              pressed && !saving && !deleting && styles.pressed,
+              (saving || deleting) && styles.disabled,
             ]}
           >
             {saving ? (
               <ActivityIndicator size="small" color="#061018" />
             ) : (
-              <TextBlock variant="button" style={styles.submitLabel}>Guardar usuario</TextBlock>
+              <TextBlock variant="button" style={styles.submitLabel}>
+                {isEditing ? 'Guardar cambios' : 'Crear usuario'}
+              </TextBlock>
             )}
           </Pressable>
+
+          {isEditing ? (
+            <Pressable
+              onPress={handleDelete}
+              disabled={deleting || saving || String(currentUser?.id) === String(params.id)}
+              style={({ pressed }) => [
+                styles.deleteButton,
+                { borderColor: theme.colors.danger },
+                pressed && !deleting && !saving && styles.pressed,
+                (deleting || saving || String(currentUser?.id) === String(params.id)) && styles.disabled,
+              ]}
+            >
+              {deleting ? (
+                <ActivityIndicator size="small" color={theme.colors.danger} />
+              ) : (
+                <TextBlock variant="button" style={{ color: theme.colors.danger }}>
+                  Eliminar usuario
+                </TextBlock>
+              )}
+            </Pressable>
+          ) : null}
         </View>
       </ScrollView>
     </ScreenContainer>
@@ -529,6 +650,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 2,
   },
+  passwordBox: {
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 16,
+    gap: 14,
+  },
+  passwordHeader: {
+    gap: 4,
+  },
   switchRow: {
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
@@ -549,6 +679,13 @@ const styles = StyleSheet.create({
   },
   submitLabel: {
     color: '#061018',
+  },
+  deleteButton: {
+    minHeight: 52,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pressed: {
     opacity: 0.85,

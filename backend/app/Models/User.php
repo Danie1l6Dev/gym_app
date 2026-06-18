@@ -30,6 +30,7 @@ class User extends Authenticatable
         'weight',
         'profile_photo',
         'is_active',
+        'manually_deactivated_at',
     ];
 
     protected $hidden = [
@@ -46,6 +47,7 @@ class User extends Authenticatable
             'height' => 'decimal:2',
             'weight' => 'decimal:2',
             'is_active' => 'boolean',
+            'manually_deactivated_at' => 'datetime',
             'password' => 'hashed',
         ];
     }

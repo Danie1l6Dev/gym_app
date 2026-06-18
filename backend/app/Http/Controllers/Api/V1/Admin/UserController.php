@@ -70,6 +70,7 @@ class UserController extends Controller
                 'weight' => $data['weight'] ?? null,
                 'profile_photo' => $data['profile_photo'] ?? null,
                 'is_active' => $data['is_active'] ?? true,
+                'manually_deactivated_at' => ($data['is_active'] ?? true) ? null : now(),
             ]);
 
             $roleSlug = Role::query()->whereKey($roleId)->value('slug');
@@ -151,6 +152,15 @@ class UserController extends Controller
 
         if (array_key_exists('password', $data) && $data['password'] !== null) {
             $updates['password'] = Hash::make($data['password']);
+            $user->tokens()->delete();
+        }
+
+        if (array_key_exists('is_active', $data)) {
+            $updates['manually_deactivated_at'] = $data['is_active'] ? null : now();
+
+            if (! $data['is_active']) {
+                $user->tokens()->delete();
+            }
         }
 
         $user->fill($updates);
@@ -164,6 +174,12 @@ class UserController extends Controller
 
     public function destroy(User $user): JsonResponse
     {
+        if (request()->user()?->id === $user->id) {
+            return response()->json([
+                'message' => 'No puedes eliminar tu propia cuenta administrativa.',
+            ], 422);
+        }
+
         $user->delete();
 
         return response()->json([
